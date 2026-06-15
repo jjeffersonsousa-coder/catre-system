@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Calendar, Users, Phone, Mail, CheckCircle } from 'lucide-react'
+import { createSupabaseBrowser } from '@/lib/supabase-browser'
 
 const tiposEvento = [
   'Retiro Espiritual',
@@ -26,7 +27,20 @@ export default function ReservaHotel() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    await new Promise(r => setTimeout(r, 1200))
+    const sb = createSupabaseBrowser()
+    await sb.from('reservas').insert({
+      nome: form.nome,
+      email: form.email,
+      telefone: form.telefone,
+      igreja: form.igreja,
+      tipo_evento: form.tipoEvento,
+      data_inicio: form.dataInicio,
+      data_fim: form.dataFim,
+      hospedes: parseInt(form.hospedes) || 1,
+      refeicoes: form.refeicoes,
+      mensagem: form.mensagem || null,
+      status: 'pendente',
+    })
     setLoading(false)
     setEnviado(true)
   }
