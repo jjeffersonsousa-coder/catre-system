@@ -9,18 +9,21 @@ import {
   Settings,
   Home,
   ChevronRight,
-  BarChart3,
   LogOut,
+  UtensilsCrossed,
+  BanIcon,
+  ClipboardList,
 } from 'lucide-react'
 import { createSupabaseBrowser } from '@/lib/supabase-browser'
 
 const navItems = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/manutencao', label: 'Manutenção', icon: Wrench },
-  { href: '/admin/reservas', label: 'Reservas', icon: CalendarCheck },
-  { href: '/admin/usuarios', label: 'Usuários', icon: Users },
-  { href: '/admin/relatorios', label: 'Relatórios', icon: BarChart3 },
-  { href: '/admin/configuracoes', label: 'Configurações', icon: Settings },
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { href: '/admin/reservas', label: 'Solicitações', icon: ClipboardList, exact: false },
+  { href: '/admin/manutencao', label: 'Manutenção', icon: Wrench, exact: false },
+  { href: '/admin/cardapio', label: 'Cardápio', icon: UtensilsCrossed, exact: false },
+  { href: '/admin/bloqueios', label: 'Bloqueios', icon: BanIcon, exact: false },
+  { href: '/admin/usuarios', label: 'Usuários', icon: Users, exact: false },
+  { href: '/admin/configuracoes', label: 'Configurações', icon: Settings, exact: false },
 ]
 
 export default function AdminSidebar() {
@@ -43,10 +46,10 @@ export default function AdminSidebar() {
       <div className="px-5 py-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         <Link href="/admin" className="flex items-center gap-3">
           <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold"
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-xs"
             style={{ background: '#006494' }}
           >
-            C
+            ARS
           </div>
           <div>
             <div className="text-white font-bold text-sm">CATRE</div>
@@ -58,8 +61,8 @@ export default function AdminSidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map((item) => {
-          const active = item.href === '/admin'
-            ? pathname === '/admin'
+          const active = item.exact
+            ? pathname === item.href
             : pathname.startsWith(item.href)
           const Icon = item.icon
           return (
@@ -68,7 +71,7 @@ export default function AdminSidebar() {
               href={item.href}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all"
               style={{
-                background: active ? 'rgba(0,100,148,0.4)' : 'transparent',
+                background: active ? 'rgba(0,100,148,0.35)' : 'transparent',
                 color: active ? 'white' : 'rgba(255,255,255,0.6)',
                 borderLeft: active ? '3px solid #4D9FBF' : '3px solid transparent',
               }}
@@ -81,11 +84,11 @@ export default function AdminSidebar() {
         })}
       </nav>
 
-      {/* Bottom links */}
+      {/* Bottom */}
       <div className="px-3 py-4 border-t space-y-1" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         <Link
           href="/"
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all hover:bg-white/5"
           style={{ color: 'rgba(255,255,255,0.4)' }}
         >
           <Home size={16} />
