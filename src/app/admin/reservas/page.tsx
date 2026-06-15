@@ -21,6 +21,8 @@ const tiposEvento = ['Retiro Espiritual', 'Treinamento / Capacitação', 'Conven
 
 type NovaReserva = { nome: string; email: string; telefone: string; igreja: string; tipo_evento: string; data_inicio: string; data_fim: string; hospedes: string; refeicoes: boolean; mensagem: string; status: string; valor_total: string; observacao_interna: string }
 const novaReservaInicial: NovaReserva = { nome: '', email: '', telefone: '', igreja: '', tipo_evento: '', data_inicio: '', data_fim: '', hospedes: '', refeicoes: false, mensagem: '', status: 'confirmada', valor_total: '', observacao_interna: '' }
+type CardapioSelecao = Record<string, { desjejum: number; almoco: number; jantar: number }>
+const planosOpts = [1, 2, 3, 4]
 
 function fmt(d: string) { return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') }
 function noites(a: string, b: string) { return Math.max(0, Math.ceil((new Date(b).getTime() - new Date(a).getTime()) / 86400000)) }
@@ -46,6 +48,7 @@ export default function ReservasPage() {
   const [novaModal, setNovaModal] = useState(false)
   const [nova, setNova] = useState<NovaReserva>(novaReservaInicial)
   const [salvando, setSalvando] = useState(false)
+  const [cardapioSel, setCardapioSel] = useState<CardapioSelecao>({})
   // Calendário
   const hoje = new Date()
   const [calMes, setCalMes] = useState(hoje.getMonth())
@@ -64,18 +67,38 @@ export default function ReservasPage() {
   async function salvarNova() {
     if (!nova.nome || !nova.data_inicio || !nova.data_fim || !nova.hospedes) return
     setSalvando(true)
-    await sb.from('reservas').insert({
+    const { data: inserted } = await sb.from('reservas').insert({
       nome: nova.nome, email: nova.email, telefone: nova.telefone, igreja: nova.igreja,
       tipo_evento: nova.tipo_evento, data_inicio: nova.data_inicio, data_fim: nova.data_fim,
       hospedes: parseInt(nova.hospedes), refeicoes: nova.refeicoes,
       mensagem: nova.mensagem || null, status: nova.status,
       valor_total: nova.valor_total ? parseFloat(nova.valor_total) : null,
       observacao_interna: nova.observacao_interna || null,
-    })
+    }).select('id').single()
+    if (inserted && nova.refeicoes && Object.keys(cardapioSel).length > 0) {
+      const rows = Object.entries(cardapioSel).map(([data, sel]) => ({
+        reserva_id: inserted.id, data,
+        desjejum_plano: sel.desjejum, almoco_plano: sel.almoco, jantar_plano: sel.jantar,
+      }))
+      await sb.from('reserva_cardapio').insert(rows)
+    }
     setSalvando(false)
     setNovaModal(false)
     setNova(novaReservaInicial)
+    setCardapioSel({})
     carregar()
+  }
+
+  function diasEstadia(): string[] {
+    if (!nova.data_inicio || !nova.data_fim) return []
+    return diasEntre(nova.data_inicio, nova.data_fim)
+  }
+
+  function setCardapioDay(dia: string, campo: 'desjejum' | 'almoco' | 'jantar', plano: number) {
+    setCardapioSel(prev => {
+      const existing = prev[dia] ?? { desjejum: 1, almoco: 1, jantar: 1 }
+      return { ...prev, [dia]: { ...existing, [campo]: plano } }
+    })
   }
 
   const filtradas = reservas.filter(r => filtro === 'todos' || r.status === filtro)
@@ -362,6 +385,39 @@ export default function ReservasPage() {
                   className="w-4 h-4 rounded" style={{ accentColor: '#006494' }} />
                 <label htmlFor="ref2" className="text-sm" style={{ color: '#374151' }}>Inclui serviço de alimentação</label>
               </div>
+
+              {/* Seleção de cardápio por dia */}
+              {nova.refeicoes && nova.data_inicio && nova.data_fim && (
+                <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#E5E7EB' }}>
+                  <div className="px-4 py-3 font-semibold text-sm flex items-center gap-2" style={{ background: '#F0F9FF', color: '#006494' }}>
+                    🍽️ Cardápio por dia — selecione o plano desejado
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {diasEstadia().map(dia => {
+                      const sel = cardapioSel[dia] ?? { desjejum: 1, almoco: 1, jantar: 1 }
+                      const dFmt = new Date(dia + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
+                      return (
+                        <div key={dia} className="px-4 py-3">
+                          <div className="text-xs font-bold mb-2 capitalize" style={{ color: '#374151' }}>{dFmt}</div>
+                          <div className="grid grid-cols-3 gap-2">
+                            {([['desjejum', '☕ Desjejum'], ['almoco', '☀️ Almoço'], ['jantar', '🌙 Jantar']] as const).map(([campo, label]) => (
+                              <div key={campo}>
+                                <div className="text-xs mb-1" style={{ color: '#9CA3AF' }}>{label}</div>
+                                <select value={sel[campo]}
+                                  onChange={e => setCardapioDay(dia, campo, parseInt(e.target.value))}
+                                  className="w-full px-2 py-1.5 rounded-lg border text-xs outline-none"
+                                  style={{ borderColor: '#E5E7EB', color: '#374151' }}>
+                                  {planosOpts.map(p => <option key={p} value={p}>Plano {p}</option>)}
+                                </select>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>Observação Interna</label>
