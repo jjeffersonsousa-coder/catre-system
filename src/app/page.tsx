@@ -1,27 +1,29 @@
-import Navbar from '@/components/Navbar'
-import HeroBanner from '@/components/HeroBanner'
-import SobreCatre from '@/components/SobreCatre'
-import Estrutura from '@/components/Estrutura'
-import Galeria from '@/components/Galeria'
-import FormReserva from '@/components/FormReserva'
-import Depoimentos from '@/components/Depoimentos'
-import FAQ from '@/components/FAQ'
-import Localizacao from '@/components/Localizacao'
-import Footer from '@/components/Footer'
+import NavbarHotel from '@/components/hotel/NavbarHotel'
+import HeroHotel from '@/components/hotel/HeroHotel'
+import SobreHotel from '@/components/hotel/SobreHotel'
+import AmenidadesHotel from '@/components/hotel/AmenidadesHotel'
+import AcomodacoesHotel from '@/components/hotel/AcomodacoesHotel'
+import GaleriaHotel from '@/components/hotel/GaleriaHotel'
+import ReservaHotel from '@/components/hotel/ReservaHotel'
+import LocalizacaoHotel from '@/components/hotel/LocalizacaoHotel'
+import FAQHotel from '@/components/hotel/FAQHotel'
+import DepoimentosHotel from '@/components/hotel/DepoimentosHotel'
+import FooterHotel from '@/components/hotel/FooterHotel'
 
 export default function Home() {
   return (
-    <main>
-      <Navbar />
-      <HeroBanner />
-      <SobreCatre />
-      <Estrutura />
-      <Galeria />
-      <FormReserva />
-      <Depoimentos />
-      <FAQ />
-      <Localizacao />
-      <Footer />
+    <main className="bg-white">
+      <NavbarHotel />
+      <HeroHotel />
+      <SobreHotel />
+      <AmenidadesHotel />
+      <AcomodacoesHotel />
+      <GaleriaHotel />
+      <ReservaHotel />
+      <LocalizacaoHotel />
+      <DepoimentosHotel />
+      <FAQHotel />
+      <FooterHotel />
     </main>
   )
 }
