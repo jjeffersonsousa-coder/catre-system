@@ -29,6 +29,7 @@ const navGroups = [
     label: 'Operacional',
     items: [
       { href: '/admin/manutencao', label: 'Manutenção', icon: Wrench, exact: false },
+      { href: '/admin/chamados', label: 'Chamados de Hóspedes', icon: ClipboardList, exact: false },
       { href: '/admin/ambientes', label: 'Ambientes', icon: Building2, exact: false },
     ],
   },

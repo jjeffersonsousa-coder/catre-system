@@ -1,17 +1,19 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, List, Calendar, X, Check, ChevronLeft, ChevronRight, Eye, Pencil, History, BedDouble, Copy, Link2, UserPlus, Trash2 } from 'lucide-react'
+import { Plus, List, Calendar, X, Check, ChevronLeft, ChevronRight, Eye, Pencil, History, BedDouble, Copy, Link2, UserPlus, Trash2, FileText, Wrench } from 'lucide-react'
 import { createSupabaseBrowser } from '@/lib/supabase-browser'
 
 type Historico = { id: string; alteracoes: Record<string, { antes: string; depois: string }>; usuario: string; created_at: string }
 type Quarto = { id: string; nome: string; localizacao: string; capacidade: number; climatizacao: string }
 type ReservaQuarto = { id: string; quarto_id: string; hospedes: string[] }
+type ReservaCardapio = { data: string; desjejum_plano: number; almoco_plano: number; jantar_plano: number }
 
 type Reserva = {
   id: string; created_at: string; nome: string; email: string; telefone: string
   igreja: string; nome_evento: string | null; tipo_evento: string; data_inicio: string; data_fim: string
   hospedes: number; refeicoes: boolean; mensagem: string | null
   status: string; observacao_interna: string | null; valor_total: number | null; token: string | null
+  tipo_diaria: string | null; criancas_isentas: number | null
 }
 
 const statusCfg: Record<string, { label: string; color: string; bg: string }> = {
@@ -94,7 +96,10 @@ export default function ReservasPage() {
   const [historico, setHistorico] = useState<Historico[]>([])
   const [quartosList, setQuartosList] = useState<Quarto[]>([])
   const [reservaQuartos, setReservaQuartos] = useState<ReservaQuarto[]>([])
+  const [reservaCardapio, setReservaCardapio] = useState<ReservaCardapio[]>([])
   const [linkCopiado, setLinkCopiado] = useState(false)
+  const [editTipoDiaria, setEditTipoDiaria] = useState('sem_roupa')
+  const [editCriancas, setEditCriancas] = useState('0')
   const [novaModal, setNovaModal] = useState(false)
   const [nova, setNova] = useState<NovaReserva>(novaReservaInicial)
   const [salvando, setSalvando] = useState(false)
@@ -132,6 +137,8 @@ export default function ReservasPage() {
       mensagem: nova.mensagem || null, status: nova.status,
       valor_total: nova.valor_total ? parseFloat(nova.valor_total) : null,
       observacao_interna: nova.observacao_interna || null,
+      tipo_diaria: nova.tipo_diaria,
+      criancas_isentas: parseInt(nova.criancas_isentas) || 0,
     }).select('id').single()
     if (inserted && nova.refeicoes && Object.keys(cardapioSel).length > 0) {
       const rows = Object.entries(cardapioSel).map(([data, sel]) => ({
@@ -151,14 +158,16 @@ export default function ReservasPage() {
     setSelecionada(r)
     setAbaDetalhe('info')
     setEditando(false)
-    const [{ data: hist }, { data: qts }, { data: rq }] = await Promise.all([
+    const [{ data: hist }, { data: qts }, { data: rq }, { data: rc }] = await Promise.all([
       sb.from('reservas_historico').select('*').eq('reserva_id', r.id).order('created_at', { ascending: false }),
       sb.from('quartos').select('id,nome,localizacao,capacidade,climatizacao').eq('ativo', true).order('numero'),
       sb.from('reserva_quartos').select('id,quarto_id,hospedes').eq('reserva_id', r.id),
+      sb.from('reserva_cardapio').select('data,desjejum_plano,almoco_plano,jantar_plano').eq('reserva_id', r.id).order('data'),
     ])
     setHistorico((hist ?? []) as Historico[])
     setQuartosList((qts ?? []) as Quarto[])
     setReservaQuartos(((rq ?? []) as { id: string; quarto_id: string; hospedes: string[] | null }[]).map(x => ({ ...x, hospedes: x.hospedes ?? [] })))
+    setReservaCardapio((rc ?? []) as ReservaCardapio[])
   }
 
   async function toggleQuartoReserva(quartoId: string) {
@@ -263,7 +272,202 @@ export default function ReservasPage() {
   function abrirEdicao() {
     if (!selecionada) return
     setEditForm({ ...selecionada })
+    setEditTipoDiaria(selecionada.tipo_diaria ?? 'sem_roupa')
+    setEditCriancas(String(selecionada.criancas_isentas ?? 0))
     setEditando(true)
+  }
+
+  function calcularValorEdicao(): number {
+    if (!editForm.data_inicio || !editForm.data_fim || !editForm.hospedes) return 0
+    const td = tiposDiaria.find(t => t.key === editTipoDiaria)
+    if (!td) return 0
+    const nts = noites(editForm.data_inicio, editForm.data_fim)
+    const hospedes = Number(editForm.hospedes) || 0
+    const criancas = parseInt(editCriancas) || 0
+    const pagantes = Math.max(0, hospedes - criancas)
+    if (nts <= 0 || hospedes <= 0) return 0
+    return td.porPessoa ? td.valor * pagantes * nts : td.valor
+  }
+
+  async function gerarProposta() {
+    if (!selecionada) return
+    const nts = noites(selecionada.data_inicio, selecionada.data_fim)
+    const valor = selecionada.valor_total ?? 0
+    const td = tiposDiaria.find(t => t.key === (selecionada.tipo_diaria ?? 'sem_roupa'))
+    const pagantes = Math.max(0, selecionada.hospedes - (selecionada.criancas_isentas ?? 0))
+
+    // Fetch cardápio items for the days
+    const { data: cardapioItems } = await sb.from('cardapio').select('tipo_refeicao,plano,nome,descricao').eq('ativo', true)
+    const getItem = (tipo: string, plano: number) => {
+      const item = (cardapioItems ?? []).find((c: { tipo_refeicao: string; plano: number; nome: string; descricao: string }) => c.tipo_refeicao === tipo && c.plano === plano)
+      return item ? `<strong>${item.nome}</strong>${item.descricao ? ` — ${item.descricao}` : ''}` : `Plano ${plano}`
+    }
+
+    const diasCardapio = reservaCardapio.length > 0 ? reservaCardapio.map(rc => {
+      const dFmt = new Date(rc.data + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
+      return `
+        <div class="dia-cardapio">
+          <div class="dia-titulo">${dFmt}</div>
+          <div class="refeicoes-grid">
+            <div class="refeicao"><span class="refeicao-icon">☕</span><div><div class="refeicao-nome">Desjejum</div><div class="refeicao-desc">${getItem('cafe', rc.desjejum_plano)}</div></div></div>
+            <div class="refeicao"><span class="refeicao-icon">☀️</span><div><div class="refeicao-nome">Almoço</div><div class="refeicao-desc">${getItem('almoco', rc.almoco_plano)}</div></div></div>
+            <div class="refeicao"><span class="refeicao-icon">🌙</span><div><div class="refeicao-nome">Jantar</div><div class="refeicao-desc">${getItem('jantar', rc.jantar_plano)}</div></div></div>
+          </div>
+        </div>`
+    }).join('') : ''
+
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Proposta — ${selecionada.nome_evento || selecionada.tipo_evento}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #F5F7FA; color: #13293D; }
+  .page { max-width: 800px; margin: 0 auto; padding: 40px 32px; }
+  .header { background: linear-gradient(135deg, #13293D 0%, #006494 100%); border-radius: 20px; padding: 36px 40px; margin-bottom: 32px; color: white; display: flex; justify-content: space-between; align-items: flex-start; }
+  .header-org { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; opacity: 0.6; margin-bottom: 8px; }
+  .header-titulo { font-size: 28px; font-weight: 900; margin-bottom: 4px; }
+  .header-tipo { font-size: 14px; opacity: 0.75; }
+  .header-badge { background: rgba(255,255,255,0.15); border-radius: 12px; padding: 12px 16px; text-align: right; font-size: 12px; line-height: 2; }
+  .card { background: white; border-radius: 16px; padding: 28px 32px; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  .card-titulo { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #006494; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .card-titulo::before { content: ''; display: inline-block; width: 3px; height: 16px; background: #F97316; border-radius: 2px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .info-item label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9CA3AF; display: block; margin-bottom: 4px; }
+  .info-item span { font-size: 14px; color: #13293D; font-weight: 500; }
+  .boas-vindas { font-size: 14px; line-height: 1.8; color: #374151; }
+  .checkin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .checkin-box { background: #F0F9FF; border: 1px solid #BAE6FD; border-radius: 12px; padding: 16px; text-align: center; }
+  .checkin-box .hora { font-size: 32px; font-weight: 900; color: #006494; }
+  .checkin-box .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #0369A1; margin-top: 4px; }
+  .regras { list-style: none; space-y: 8px; }
+  .regras li { font-size: 13px; color: #374151; padding: 6px 0; border-bottom: 1px solid #F3F4F6; display: flex; gap: 8px; }
+  .regras li::before { content: '→'; color: #F97316; font-weight: 700; flex-shrink: 0; }
+  .dia-cardapio { margin-bottom: 16px; }
+  .dia-titulo { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #006494; padding: 8px 0; border-bottom: 2px solid #E8F4F8; margin-bottom: 10px; }
+  .refeicoes-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .refeicao { display: flex; gap: 8px; align-items: flex-start; background: #F9FAFB; border-radius: 10px; padding: 10px; }
+  .refeicao-icon { font-size: 18px; flex-shrink: 0; }
+  .refeicao-nome { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9CA3AF; margin-bottom: 3px; }
+  .refeicao-desc { font-size: 12px; color: #374151; line-height: 1.4; }
+  .financeiro { }
+  .fin-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #F3F4F6; font-size: 13px; color: #374151; }
+  .fin-row:last-child { border-bottom: none; }
+  .fin-total { display: flex; justify-content: space-between; padding: 16px 20px; background: linear-gradient(135deg, #13293D, #006494); border-radius: 12px; margin-top: 12px; }
+  .fin-total-label { color: rgba(255,255,255,0.8); font-size: 14px; font-weight: 600; }
+  .fin-total-valor { color: white; font-size: 24px; font-weight: 900; }
+  .footer { text-align: center; padding: 24px; font-size: 11px; color: #9CA3AF; line-height: 2; }
+  .print-btn { position: fixed; top: 20px; right: 20px; background: #006494; color: white; border: none; border-radius: 12px; padding: 12px 24px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(0,100,148,0.4); z-index: 999; }
+  .print-btn:hover { background: #13293D; }
+  .edit-hint { position: fixed; top: 20px; left: 20px; background: #F97316; color: white; border-radius: 12px; padding: 10px 16px; font-size: 12px; font-weight: 600; z-index: 999; }
+  @media print {
+    .print-btn, .edit-hint { display: none !important; }
+    body { background: white; }
+    .page { padding: 0; }
+    .card { box-shadow: none; border: 1px solid #E5E7EB; }
+    .header { border-radius: 12px; }
+    @page { margin: 1.5cm; size: A4; }
+  }
+  [contenteditable]:focus { outline: 2px dashed #F97316; border-radius: 4px; }
+</style></head><body>
+<button class="edit-hint">✏️ Clique em qualquer texto para editar</button>
+<button class="print-btn" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+<div class="page">
+  <!-- CABEÇALHO -->
+  <div class="header">
+    <div>
+      <div class="header-org">CATRE — Centro Adventista de Treinamento, Retiros e Eventos · ARS</div>
+      <div class="header-titulo" contenteditable="true">${selecionada.nome_evento || selecionada.tipo_evento}</div>
+      <div class="header-tipo" contenteditable="true">${selecionada.tipo_evento}</div>
+    </div>
+    <div class="header-badge">
+      <div>📅 ${fmt(selecionada.data_inicio)} → ${fmt(selecionada.data_fim)}</div>
+      <div>🌙 ${nts} noite(s)</div>
+      <div>👥 ${selecionada.hospedes} hóspedes</div>
+    </div>
+  </div>
+
+  <!-- BOAS-VINDAS -->
+  <div class="card">
+    <div class="card-titulo">Carta de Boas-Vindas</div>
+    <div class="boas-vindas" contenteditable="true">
+      <p>Prezado(a) <strong>${selecionada.nome}</strong>,</p><br>
+      <p>É com grande alegria que recebemos o seu grupo no <strong>CATRE — Centro Adventista de Treinamento, Retiros e Eventos</strong> da Associação Rio Sul.</p><br>
+      <p>Nosso espaço foi pensado para proporcionar um ambiente acolhedor, seguro e inspirador para a realização do seu evento. Contamos com toda uma estrutura preparada com carinho para que a experiência de vocês seja inesquecível.</p><br>
+      <p>Nossa equipe está à disposição para auxiliar no que for necessário durante toda a estadia. Desejamos que este seja um momento de crescimento, comunhão e bênçãos para todos.</p><br>
+      <p>Seja bem-vindo(a)!</p><br>
+      <p style="color:#9CA3AF; font-size:13px">Equipe CATRE — ARS · Itatiaia, RJ</p>
+    </div>
+  </div>
+
+  <!-- INFORMAÇÕES DO EVENTO -->
+  <div class="card">
+    <div class="card-titulo">Informações do Evento</div>
+    <div class="info-grid">
+      <div class="info-item"><label>Responsável</label><span contenteditable="true">${selecionada.nome}</span></div>
+      <div class="info-item"><label>Igreja / Organização</label><span contenteditable="true">${selecionada.igreja}</span></div>
+      <div class="info-item"><label>E-mail</label><span contenteditable="true">${selecionada.email}</span></div>
+      <div class="info-item"><label>Telefone</label><span contenteditable="true">${selecionada.telefone}</span></div>
+      <div class="info-item"><label>Tipo de Evento</label><span contenteditable="true">${selecionada.tipo_evento}</span></div>
+      <div class="info-item"><label>Período</label><span contenteditable="true">${fmt(selecionada.data_inicio)} → ${fmt(selecionada.data_fim)} (${nts} noites)</span></div>
+      <div class="info-item"><label>Total de Hóspedes</label><span contenteditable="true">${selecionada.hospedes} pessoas</span></div>
+      <div class="info-item"><label>Alimentação Inclusa</label><span contenteditable="true">${selecionada.refeicoes ? 'Sim' : 'Não'}</span></div>
+    </div>
+  </div>
+
+  <!-- CHECK-IN / CHECK-OUT -->
+  <div class="card">
+    <div class="card-titulo">Horários de Check-in e Check-out</div>
+    <div class="checkin-grid">
+      <div class="checkin-box">
+        <div class="hora" contenteditable="true">15:00</div>
+        <div class="label">✅ Check-in</div>
+      </div>
+      <div class="checkin-box">
+        <div class="hora" contenteditable="true">12:00</div>
+        <div class="label">🔑 Check-out</div>
+      </div>
+    </div>
+    <ul class="regras" style="margin-top:16px" contenteditable="true">
+      <li>O check-in será realizado na recepção, mediante apresentação de documento com foto.</li>
+      <li>Não é permitida a entrada de pessoas não cadastradas nas acomodações.</li>
+      <li>O check-out deve ser realizado até o horário indicado para evitar cobranças adicionais.</li>
+      <li>Em caso de necessidade de late check-out, consultar a administração com antecedência.</li>
+    </ul>
+  </div>
+
+  ${diasCardapio ? `
+  <!-- CARDÁPIO -->
+  <div class="card">
+    <div class="card-titulo">Cardápio por Dia</div>
+    ${diasCardapio}
+  </div>` : ''}
+
+  <!-- FINANCEIRO -->
+  <div class="card">
+    <div class="card-titulo">Resumo Financeiro</div>
+    <div class="financeiro" contenteditable="true">
+      ${td ? `<div class="fin-row"><span>${td.label}</span><span>${td.porPessoa ? `${pagantes} pessoas × ${nts} noites × R$ ${td.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Pacote fixo'}</span></div>` : ''}
+      ${selecionada.refeicoes ? `<div class="fin-row"><span>Serviço de Alimentação</span><span>${pagantes} pessoas × refeições × R$ ${PRECO_REFEICAO.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>` : ''}
+      ${selecionada.criancas_isentas ? `<div class="fin-row"><span>Crianças isentas (até 7 anos)</span><span>${selecionada.criancas_isentas} isenta(s)</span></div>` : ''}
+    </div>
+    <div class="fin-total">
+      <span class="fin-total-label">Valor Total do Evento</span>
+      <span class="fin-total-valor" contenteditable="true">R$ ${valor > 0 ? valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '—'}</span>
+    </div>
+    <p style="font-size:12px; color:#9CA3AF; margin-top:12px; text-align:center" contenteditable="true">
+      Este documento é uma proposta oficial. Para dúvidas, entre em contato: (24) 3551-1223 · catre@ars.org.br
+    </p>
+  </div>
+
+  <div class="footer">
+    CATRE — Centro Adventista de Treinamento, Retiros e Eventos<br>
+    Associação Rio Sul da Igreja Adventista do Sétimo Dia · Itatiaia, RJ<br>
+    Proposta gerada em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+  </div>
+</div>
+</body></html>`
+
+    const w = window.open('', '_blank')
+    if (w) { w.document.write(html); w.document.close() }
   }
 
   async function salvarEdicao() {
@@ -547,6 +751,19 @@ export default function ReservasPage() {
               {/* Aba Informações */}
               {!editando && abaDetalhe === 'info' && (
                 <div className="space-y-4">
+                  {/* Botões de ação */}
+                  <div className="flex gap-2">
+                    <button onClick={gerarProposta}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+                      style={{ background: '#13293D', color: 'white' }}>
+                      <FileText size={15} /> Gerar Proposta / PDF
+                    </button>
+                    <a href="/manutencao/solicitar" target="_blank"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+                      style={{ background: '#F97316', color: 'white' }}>
+                      <Wrench size={15} /> Link de Manutenção
+                    </a>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     {[
                       { l: 'Responsável', v: selecionada.nome }, { l: 'Igreja / Org.', v: selecionada.igreja },
@@ -769,11 +986,52 @@ export default function ReservasPage() {
                         {Object.entries(statusCfg).map(([k, { label }]) => <option key={k} value={k}>{label}</option>)}
                       </select>
                     </div>
+                  </div>
+                  {/* Cálculo de valor */}
+                  <div className="rounded-xl p-4" style={{ background: '#F0F9FF', border: '1px solid #BAE6FD' }}>
+                    <div className="text-xs font-bold mb-3" style={{ color: '#0369A1' }}>Calcular Valor Automaticamente</div>
+                    <div className="grid sm:grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>Tipo de Diária</label>
+                        <select value={editTipoDiaria} onChange={e => setEditTipoDiaria(e.target.value)}
+                          className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#BAE6FD', color: '#374151' }}>
+                          {tiposDiaria.map(t => <option key={t.key} value={t.key}>{t.label} — R$ {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}{t.porPessoa ? '/pess./noite' : ' fixo'}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>Crianças isentas (até 7 anos)</label>
+                        <input type="number" min="0" value={editCriancas} onChange={e => setEditCriancas(e.target.value)}
+                          className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#BAE6FD', color: '#374151' }} />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs" style={{ color: '#0369A1' }}>
+                        {editForm.data_inicio && editForm.data_fim && editForm.hospedes
+                          ? `${noites(editForm.data_inicio, editForm.data_fim)} noite(s) · ${Math.max(0, Number(editForm.hospedes) - (parseInt(editCriancas) || 0))} pagantes`
+                          : 'Preencha datas e hóspedes'}
+                      </div>
+                      <button onClick={() => {
+                        const v = calcularValorEdicao()
+                        if (v > 0) setEditForm(p => ({ ...p, valor_total: v, tipo_diaria: editTipoDiaria, criancas_isentas: parseInt(editCriancas) || 0 }))
+                      }} className="px-4 py-2 rounded-lg text-xs font-bold text-white" style={{ background: '#006494' }}>
+                        Calcular e Aplicar
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>Valor Total (R$)</label>
                       <input type="number" step="0.01" value={editForm.valor_total ?? ''}
                         onChange={e => setEditForm(p => ({ ...p, valor_total: parseFloat(e.target.value) }))}
                         className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>Alimentação inclusa</label>
+                      <select value={editForm.refeicoes ? 'true' : 'false'} onChange={e => setEditForm(p => ({ ...p, refeicoes: e.target.value === 'true' }))}
+                        className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }}>
+                        <option value="false">Não</option>
+                        <option value="true">Sim</option>
+                      </select>
                     </div>
                   </div>
                   <div>
