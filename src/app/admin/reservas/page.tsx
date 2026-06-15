@@ -5,7 +5,7 @@ import { createSupabaseBrowser } from '@/lib/supabase-browser'
 
 type Reserva = {
   id: string; created_at: string; nome: string; email: string; telefone: string
-  igreja: string; tipo_evento: string; data_inicio: string; data_fim: string
+  igreja: string; nome_evento: string | null; tipo_evento: string; data_inicio: string; data_fim: string
   hospedes: number; refeicoes: boolean; mensagem: string | null
   status: string; observacao_interna: string | null; valor_total: number | null
 }
@@ -29,14 +29,14 @@ const tiposDiaria = [
 const PRECO_REFEICAO = 40 // por pessoa por refeição
 
 type NovaReserva = {
-  nome: string; email: string; telefone: string; igreja: string; tipo_evento: string
+  nome: string; email: string; telefone: string; igreja: string; nome_evento: string; tipo_evento: string
   data_inicio: string; data_fim: string; hospedes: string; tipo_diaria: string
   refeicoes: boolean; desjejum: boolean; almoco: boolean; jantar: boolean
   roupa_cama: boolean; criancas_isentas: string
   mensagem: string; status: string; valor_total: string; observacao_interna: string
 }
 const novaReservaInicial: NovaReserva = {
-  nome: '', email: '', telefone: '', igreja: '', tipo_evento: '', data_inicio: '', data_fim: '',
+  nome: '', email: '', telefone: '', igreja: '', nome_evento: '', tipo_evento: '', data_inicio: '', data_fim: '',
   hospedes: '', tipo_diaria: 'sem_roupa', refeicoes: false,
   desjejum: true, almoco: true, jantar: true, roupa_cama: false, criancas_isentas: '0',
   mensagem: '', status: 'confirmada', valor_total: '', observacao_interna: '',
@@ -116,7 +116,7 @@ export default function ReservasPage() {
     setSalvando(true)
     const { data: inserted } = await sb.from('reservas').insert({
       nome: nova.nome, email: nova.email, telefone: nova.telefone, igreja: nova.igreja,
-      tipo_evento: nova.tipo_evento, data_inicio: nova.data_inicio, data_fim: nova.data_fim,
+      nome_evento: nova.nome_evento || null, tipo_evento: nova.tipo_evento, data_inicio: nova.data_inicio, data_fim: nova.data_fim,
       hospedes: parseInt(nova.hospedes), refeicoes: nova.refeicoes,
       mensagem: nova.mensagem || null, status: nova.status,
       valor_total: nova.valor_total ? parseFloat(nova.valor_total) : null,
@@ -230,7 +230,10 @@ export default function ReservasPage() {
                           <div className="font-semibold text-sm" style={{ color: '#13293D' }}>{r.nome}</div>
                           <div className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>{r.igreja}</div>
                         </td>
-                        <td className="px-5 py-4 text-sm" style={{ color: '#374151' }}>{r.tipo_evento}</td>
+                        <td className="px-5 py-4">
+                          <div className="text-sm font-medium" style={{ color: '#374151' }}>{r.nome_evento || r.tipo_evento}</div>
+                          {r.nome_evento && <div className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>{r.tipo_evento}</div>}
+                        </td>
                         <td className="px-5 py-4">
                           <div className="text-sm" style={{ color: '#374151' }}>{fmt(r.data_inicio)} → {fmt(r.data_fim)}</div>
                           <div className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>{noites(r.data_inicio, r.data_fim)} noites</div>
@@ -295,7 +298,7 @@ export default function ReservasPage() {
                     <button key={r.id} onClick={() => setSelecionada(r)}
                       className="text-left text-xs px-1.5 py-0.5 rounded font-medium truncate w-full"
                       style={{ background: statusCfg[r.status]?.bg, color: statusCfg[r.status]?.color }}>
-                      {r.nome.split(' ')[0]}
+                      {r.nome_evento || r.nome.split(' ')[0]}
                     </button>
                   ))}
                   {res.length > 2 && (
@@ -383,13 +386,21 @@ export default function ReservasPage() {
                 ))}
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>Tipo de Evento</label>
-                <select value={nova.tipo_evento} onChange={e => setNova(p => ({ ...p, tipo_evento: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }}>
-                  <option value="">Selecione...</option>
-                  {tiposEvento.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>Tipo de Evento</label>
+                  <select value={nova.tipo_evento} onChange={e => setNova(p => ({ ...p, tipo_evento: e.target.value }))}
+                    className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }}>
+                    <option value="">Selecione...</option>
+                    {tiposEvento.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>Nome do Evento</label>
+                  <input type="text" value={nova.nome_evento} onChange={e => setNova(p => ({ ...p, nome_evento: e.target.value }))}
+                    placeholder="Ex: Retiro da Juventude 2026"
+                    className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }} />
+                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">

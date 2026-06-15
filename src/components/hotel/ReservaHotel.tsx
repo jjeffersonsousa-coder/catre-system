@@ -15,7 +15,7 @@ const tiposEvento = [
 export default function ReservaHotel() {
   const [form, setForm] = useState({
     nome: '', email: '', telefone: '', igreja: '',
-    tipoEvento: '', dataInicio: '', dataFim: '',
+    nomeEvento: '', tipoEvento: '', dataInicio: '', dataFim: '',
     hospedes: '', refeicoes: false, mensagem: '',
   })
   const [enviado, setEnviado] = useState(false)
@@ -33,6 +33,7 @@ export default function ReservaHotel() {
       email: form.email,
       telefone: form.telefone,
       igreja: form.igreja,
+      nome_evento: form.nomeEvento || null,
       tipo_evento: form.tipoEvento,
       data_inicio: form.dataInicio,
       data_fim: form.dataFim,
@@ -160,14 +161,23 @@ export default function ReservaHotel() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>Tipo de evento *</label>
-                  <select required value={form.tipoEvento} onChange={e => set('tipoEvento', e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-white border text-sm outline-none"
-                    style={{ borderColor: '#E5E7EB', color: '#13293D' }}>
-                    <option value="">Selecione o tipo...</option>
-                    {tiposEvento.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>Tipo de evento *</label>
+                    <select required value={form.tipoEvento} onChange={e => set('tipoEvento', e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-white border text-sm outline-none"
+                      style={{ borderColor: '#E5E7EB', color: '#13293D' }}>
+                      <option value="">Selecione o tipo...</option>
+                      {tiposEvento.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>Nome do Evento</label>
+                    <input type="text" value={form.nomeEvento} onChange={e => set('nomeEvento', e.target.value)}
+                      placeholder="Ex: Retiro da Juventude 2026"
+                      className="w-full px-4 py-3 rounded-xl bg-white border text-sm outline-none focus:border-blue-400 transition-colors"
+                      style={{ borderColor: '#E5E7EB', color: '#13293D' }} />
+                  </div>
                 </div>
 
                 <div className="grid sm:grid-cols-3 gap-4">
