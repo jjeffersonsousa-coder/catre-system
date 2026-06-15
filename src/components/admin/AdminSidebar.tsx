@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
   Wrench,
@@ -10,7 +10,9 @@ import {
   Home,
   ChevronRight,
   BarChart3,
+  LogOut,
 } from 'lucide-react'
+import { signOut } from '@/lib/auth'
 
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -23,6 +25,13 @@ const navItems = [
 
 export default function AdminSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    await signOut()
+    router.push('/admin/login')
+    router.refresh()
+  }
 
   return (
     <aside
@@ -71,8 +80,8 @@ export default function AdminSidebar() {
         })}
       </nav>
 
-      {/* Back to site */}
-      <div className="px-3 py-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+      {/* Bottom links */}
+      <div className="px-3 py-4 border-t space-y-1" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         <Link
           href="/"
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all"
@@ -81,6 +90,14 @@ export default function AdminSidebar() {
           <Home size={16} />
           Ver Site Público
         </Link>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all hover:bg-red-500/10"
+          style={{ color: 'rgba(255,100,100,0.7)' }}
+        >
+          <LogOut size={16} />
+          Sair
+        </button>
       </div>
     </aside>
   )
