@@ -12,10 +12,10 @@ export default function ConfiguracoesPage() {
           <h2 className="font-bold mb-4" style={{ color: '#13293D' }}>Informações do CATRE</h2>
           <div className="space-y-4">
             {[
-              { label: 'Nome do Centro', value: 'CATRE Penedo' },
-              { label: 'Cidade', value: 'Penedo — Alagoas' },
+              { label: 'Nome do Centro', value: 'CATRE Penedo — Satulinna' },
+              { label: 'Cidade', value: 'Itatiaia — Rio de Janeiro' },
               { label: 'Associação', value: 'Associação Rio Sul (ARS)' },
-              { label: 'Telefone', value: '(82) 0000-0000' },
+              { label: 'Telefone', value: '(24) 3551-1223' },
               { label: 'E-mail', value: 'catre@adventistars.org.br' },
             ].map(f => (
               <div key={f.label}>

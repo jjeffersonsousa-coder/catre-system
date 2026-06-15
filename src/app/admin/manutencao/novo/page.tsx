@@ -1,9 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Upload, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Upload, AlertTriangle, X } from 'lucide-react'
 import Link from 'next/link'
 import { CATEGORIAS } from '@/lib/types'
+import { createSupabaseBrowser } from '@/lib/supabase-browser'
+
+type Quarto = { id: string; numero: number | null; nome: string; localizacao: string; capacidade: number; climatizacao: string }
 
 const prioridades = [
   { value: 'baixa', label: 'Baixa', color: '#22C55E', desc: 'Pode aguardar a próxima semana' },
@@ -14,6 +17,10 @@ const prioridades = [
 
 export default function NovoChamado() {
   const router = useRouter()
+  const [quartos, setQuartos] = useState<Quarto[]>([])
+  const [quartosSelected, setQuartosSelected] = useState<string[]>([])
+  const [localManual, setLocalManual] = useState('')
+  const [useQuartosList, setUseQuartosList] = useState(true)
   const [form, setForm] = useState({
     data: new Date().toISOString().split('T')[0],
     hora: new Date().toTimeString().slice(0, 5),
@@ -26,13 +33,37 @@ export default function NovoChamado() {
   })
   const [saving, setSaving] = useState(false)
 
+  useEffect(() => {
+    const sb = createSupabaseBrowser()
+    sb.from('quartos').select('id, numero, nome, localizacao, capacidade, climatizacao').eq('ativo', true).order('numero')
+      .then(({ data }) => { if (data) setQuartos(data as Quarto[]) })
+  }, [])
+
   const subitens = form.categoriaGrupo ? CATEGORIAS[form.categoriaGrupo as keyof typeof CATEGORIAS] ?? [] : []
+
+  function toggleQuarto(id: string) {
+    setQuartosSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  function getLocalFinal() {
+    if (!useQuartosList) return localManual
+    if (quartosSelected.length === 0) return localManual
+    const nomes = quartos.filter(q => quartosSelected.includes(q.id)).map(q => q.nome)
+    return nomes.join(', ') + (localManual ? ` — ${localManual}` : '')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    // In production: await supabase.from('manutencao_chamados').insert({ ... })
-    await new Promise(r => setTimeout(r, 800))
+    const localFinal = getLocalFinal()
+    const sb = createSupabaseBrowser()
+    await sb.from('manutencao_chamados').insert({
+      data: form.data, hora: form.hora,
+      local: localFinal || form.local,
+      categoria: [form.categoriaGrupo, form.categoriaItem].filter(Boolean).join(' — ') || 'Geral',
+      descricao: form.descricao, prioridade: form.prioridade,
+      responsavel: form.responsavel || null, status: 'aberto',
+    })
     setSaving(false)
     router.push('/admin/manutencao')
   }
@@ -88,23 +119,74 @@ export default function NovoChamado() {
         </div>
 
         {/* Local e Categoria */}
-        <div
-          className="rounded-xl p-5"
-          style={{ background: 'white', boxShadow: '0 1px 8px rgba(19,41,61,0.07)' }}
-        >
+        <div className="rounded-xl p-5" style={{ background: 'white', boxShadow: '0 1px 8px rgba(19,41,61,0.07)' }}>
           <h2 className="font-semibold mb-4" style={{ color: '#13293D' }}>Local e Categoria</h2>
           <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: '#374151' }}>Local *</label>
-              <input
-                type="text"
-                required
-                placeholder="Ex: Quarto 12, Banheiro Bloco A, Piscina..."
-                value={form.local}
-                onChange={e => setForm(f => ({ ...f, local: e.target.value }))}
-                className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none"
-                style={{ borderColor: '#E5E7EB', color: '#13293D' }}
-              />
+            {/* Toggle modo */}
+            <div className="flex rounded-xl border overflow-hidden w-fit" style={{ borderColor: '#E5E7EB' }}>
+              <button type="button" onClick={() => setUseQuartosList(true)}
+                className="px-4 py-2 text-sm font-medium transition-all"
+                style={{ background: useQuartosList ? '#006494' : 'white', color: useQuartosList ? 'white' : '#374151' }}>
+                Selecionar Quartos
+              </button>
+              <button type="button" onClick={() => setUseQuartosList(false)}
+                className="px-4 py-2 text-sm font-medium transition-all"
+                style={{ background: !useQuartosList ? '#006494' : 'white', color: !useQuartosList ? 'white' : '#374151' }}>
+                Digitar Local
+              </button>
+            </div>
+
+            {useQuartosList ? (
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: '#374151' }}>
+                  Selecione os quartos / áreas afetados (pode selecionar vários)
+                </label>
+                {quartosSelected.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {quartosSelected.map(id => {
+                      const q = quartos.find(x => x.id === id)
+                      return q ? (
+                        <span key={id} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium"
+                          style={{ background: '#E8F4F8', color: '#006494' }}>
+                          {q.nome}
+                          <button type="button" onClick={() => toggleQuarto(id)}><X size={12} /></button>
+                        </span>
+                      ) : null
+                    })}
+                  </div>
+                )}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
+                  {quartos.map(q => {
+                    const sel = quartosSelected.includes(q.id)
+                    return (
+                      <button key={q.id} type="button" onClick={() => toggleQuarto(q.id)}
+                        className="text-left px-3 py-2 rounded-lg border text-xs transition-all"
+                        style={{
+                          borderColor: sel ? '#006494' : '#E5E7EB',
+                          background: sel ? '#E8F4F8' : 'white',
+                          color: sel ? '#006494' : '#374151',
+                        }}>
+                        <div className="font-semibold">{q.nome}</div>
+                        <div className="opacity-60 text-[10px]">{q.climatizacao === 'ar_condicionado' ? 'A/C' : 'Vent.'} · {q.capacidade} leitos</div>
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="mt-3">
+                  <label className="block text-xs font-medium mb-1" style={{ color: '#374151' }}>Complemento (opcional)</label>
+                  <input type="text" value={localManual} onChange={e => setLocalManual(e.target.value)}
+                    placeholder="Ex: Banheiro, janela, tomada..." className="w-full px-3 py-2 rounded-lg border text-sm outline-none"
+                    style={{ borderColor: '#E5E7EB', color: '#13293D' }} />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: '#374151' }}>Local *</label>
+                <input type="text" required placeholder="Ex: Quarto 12, Banheiro Bloco A, Piscina..."
+                  value={form.local} onChange={e => setForm(f => ({ ...f, local: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#13293D' }} />
+              </div>
+            )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -137,7 +219,6 @@ export default function NovoChamado() {
               </div>
             </div>
           </div>
-        </div>
 
         {/* Descrição */}
         <div
