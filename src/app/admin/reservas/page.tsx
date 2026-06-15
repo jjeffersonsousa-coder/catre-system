@@ -190,6 +190,76 @@ export default function ReservasPage() {
     setTimeout(() => setLinkCopiado(false), 2500)
   }
 
+  function imprimirQuartos(apenasQuartoId?: string) {
+    if (!selecionada) return
+    const lista = apenasQuartoId
+      ? reservaQuartos.filter(rq => rq.quarto_id === apenasQuartoId)
+      : reservaQuartos
+    const cores = ['#006494', '#F97316']
+    const cartoes = lista.map(rq => {
+      const q = quartosList.find(x => x.id === rq.quarto_id)
+      if (!q) return ''
+      const nomes = rq.hospedes.filter(n => n.trim())
+      const linhas = nomes.length > 0
+        ? nomes.map((n, i) => `<div class="hospede" style="color:${cores[i % 2]}">${i + 1}. ${n}</div>`).join('')
+        : '<div class="vazio">Nenhum hóspede cadastrado</div>'
+      return `
+        <div class="quarto">
+          <div class="quarto-header">
+            <span class="quarto-nome">${q.nome}</span>
+            <span class="quarto-info">${q.climatizacao === 'ar_condicionado' ? '❄️ A/C' : '🌀 Ventilador'} · ${nomes.length}/${q.capacidade} hóspedes</span>
+          </div>
+          <div class="hospedes">${linhas}</div>
+        </div>`
+    }).join('')
+
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Quartos — ${selecionada.nome_evento || selecionada.tipo_evento}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #F5F7FA; color: #13293D; padding: 32px; }
+  .cabecalho { background: linear-gradient(135deg, #13293D 0%, #006494 100%); color: white; border-radius: 16px; padding: 24px 32px; margin-bottom: 28px; display: flex; align-items: center; justify-content: space-between; }
+  .cabecalho-esq { }
+  .cabecalho-org { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; opacity: 0.7; margin-bottom: 4px; }
+  .cabecalho-evento { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  .cabecalho-datas { font-size: 12px; opacity: 0.8; }
+  .cabecalho-dir { text-align: right; font-size: 11px; opacity: 0.7; line-height: 1.8; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+  .quarto { background: white; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); break-inside: avoid; }
+  .quarto-header { background: #13293D; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .quarto-nome { color: white; font-size: 15px; font-weight: 800; letter-spacing: 0.5px; }
+  .quarto-info { color: rgba(255,255,255,0.65); font-size: 11px; }
+  .hospedes { padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .hospede { font-size: 14px; font-weight: 600; padding: 6px 12px; border-radius: 8px; background: rgba(0,0,0,0.03); }
+  .vazio { font-size: 13px; color: #9CA3AF; font-style: italic; padding: 8px 0; }
+  .rodape { margin-top: 28px; text-align: center; font-size: 11px; color: #9CA3AF; }
+  @media print {
+    body { background: white; padding: 16px; }
+    .quarto { box-shadow: none; border: 1px solid #E5E7EB; }
+    @page { margin: 1.5cm; size: A4; }
+  }
+</style></head><body>
+<div class="cabecalho">
+  <div class="cabecalho-esq">
+    <div class="cabecalho-org">CATRE — Associação Rio Sul</div>
+    <div class="cabecalho-evento">${selecionada.nome_evento || selecionada.tipo_evento}</div>
+    <div class="cabecalho-datas">📅 ${fmt(selecionada.data_inicio)} → ${fmt(selecionada.data_fim)} &nbsp;·&nbsp; 👥 ${selecionada.hospedes} hóspedes</div>
+  </div>
+  <div class="cabecalho-dir">
+    Responsável: ${selecionada.nome}<br>
+    ${selecionada.igreja}<br>
+    Gerado em ${new Date().toLocaleDateString('pt-BR')}
+  </div>
+</div>
+<div class="grade">${cartoes}</div>
+<div class="rodape">CATRE — Centro Adventista de Treinamento, Retiros e Eventos · Itatiaia, RJ</div>
+<script>window.onload = () => { window.print(); }<\/script>
+</body></html>`
+
+    const w = window.open('', '_blank')
+    if (w) { w.document.write(html); w.document.close() }
+  }
+
   function abrirEdicao() {
     if (!selecionada) return
     setEditForm({ ...selecionada })
@@ -596,7 +666,14 @@ export default function ReservasPage() {
                   {/* Hóspedes por quarto */}
                   {reservaQuartos.length > 0 && (
                     <div className="space-y-3">
-                      <p className="text-xs font-semibold" style={{ color: '#374151' }}>Nomes dos hóspedes por quarto:</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold" style={{ color: '#374151' }}>Nomes dos hóspedes por quarto:</p>
+                        <button onClick={() => imprimirQuartos()}
+                          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+                          style={{ background: '#13293D', color: 'white' }}>
+                          🖨️ Imprimir / PDF — Todos
+                        </button>
+                      </div>
                       {reservaQuartos.map(rq => {
                         const q = quartosList.find(x => x.id === rq.quarto_id)
                         if (!q) return null
@@ -604,7 +681,12 @@ export default function ReservasPage() {
                           <div key={rq.id} className="rounded-xl border p-3" style={{ borderColor: '#E5E7EB' }}>
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-xs font-bold" style={{ color: '#13293D' }}>{q.nome}</span>
-                              <span className="text-xs" style={{ color: '#9CA3AF' }}>{rq.hospedes.length}/{q.capacidade} leitos</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs" style={{ color: '#9CA3AF' }}>{rq.hospedes.length}/{q.capacidade} leitos</span>
+                                <button onClick={() => imprimirQuartos(q.id)}
+                                  className="text-xs px-2 py-1 rounded-lg font-semibold hover:opacity-80"
+                                  style={{ background: '#F3F4F6', color: '#374151' }}>🖨️</button>
+                              </div>
                             </div>
                             <div className="space-y-1.5">
                               {rq.hospedes.map((nome, i) => (
