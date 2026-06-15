@@ -17,12 +17,51 @@ const statusCfg: Record<string, { label: string; color: string; bg: string }> = 
   concluida: { label: 'Concluída', color: '#6B7280', bg: '#F9FAFB' },
 }
 
-const tiposEvento = ['Retiro Espiritual', 'Treinamento / Capacitação', 'Convenção', 'Acampamento de Jovens', 'Evento Familiar', 'Outro']
+const tiposEvento = ['Retiro Espiritual', 'Treinamento / Capacitação', 'Convenção', 'Acampamento de Jovens', 'Evento Familiar', 'Casamento', 'Outro']
 
-type NovaReserva = { nome: string; email: string; telefone: string; igreja: string; tipo_evento: string; data_inicio: string; data_fim: string; hospedes: string; refeicoes: boolean; mensagem: string; status: string; valor_total: string; observacao_interna: string }
-const novaReservaInicial: NovaReserva = { nome: '', email: '', telefone: '', igreja: '', tipo_evento: '', data_inicio: '', data_fim: '', hospedes: '', refeicoes: false, mensagem: '', status: 'confirmada', valor_total: '', observacao_interna: '' }
+const tiposDiaria = [
+  { key: 'sem_roupa', label: 'Diária Eventos — Sem Roupa de Cama', valor: 220, porPessoa: true },
+  { key: 'com_roupa', label: 'Diária Eventos — Com Roupa de Cama', valor: 260, porPessoa: true },
+  { key: 'departamentos', label: 'Diária Eventos Departamentos', valor: 120, porPessoa: true },
+  { key: 'pastoral', label: 'Diária Família Pastoral e Funcionários', valor: 150, porPessoa: true },
+  { key: 'casamento', label: 'Diária Casamento (pacote fixo)', valor: 10000, porPessoa: false },
+]
+const PRECO_REFEICAO = 40 // por pessoa por refeição
+
+type NovaReserva = {
+  nome: string; email: string; telefone: string; igreja: string; tipo_evento: string
+  data_inicio: string; data_fim: string; hospedes: string; tipo_diaria: string
+  refeicoes: boolean; desjejum: boolean; almoco: boolean; jantar: boolean
+  roupa_cama: boolean; criancas_isentas: string
+  mensagem: string; status: string; valor_total: string; observacao_interna: string
+}
+const novaReservaInicial: NovaReserva = {
+  nome: '', email: '', telefone: '', igreja: '', tipo_evento: '', data_inicio: '', data_fim: '',
+  hospedes: '', tipo_diaria: 'sem_roupa', refeicoes: false,
+  desjejum: true, almoco: true, jantar: true, roupa_cama: false, criancas_isentas: '0',
+  mensagem: '', status: 'confirmada', valor_total: '', observacao_interna: '',
+}
 type CardapioSelecao = Record<string, { desjejum: number; almoco: number; jantar: number }>
 const planosOpts = [1, 2, 3, 4]
+
+function calcularValor(nova: NovaReserva): number {
+  const td = tiposDiaria.find(t => t.key === nova.tipo_diaria)
+  if (!td) return 0
+  const nts = noites(nova.data_inicio, nova.data_fim)
+  const hospedes = parseInt(nova.hospedes) || 0
+  const criancas = parseInt(nova.criancas_isentas) || 0
+  const pagantes = Math.max(0, hospedes - criancas)
+  if (nts <= 0 || hospedes <= 0) return 0
+
+  let total = td.porPessoa ? td.valor * pagantes * nts : td.valor
+
+  if (nova.refeicoes) {
+    const dias = diasEntre(nova.data_inicio, nova.data_fim).length
+    const refeicoesPorDia = (nova.desjejum ? 1 : 0) + (nova.almoco ? 1 : 0) + (nova.jantar ? 1 : 0)
+    total += PRECO_REFEICAO * pagantes * refeicoesPorDia * dias
+  }
+  return total
+}
 
 function fmt(d: string) { return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') }
 function noites(a: string, b: string) { return Math.max(0, Math.ceil((new Date(b).getTime() - new Date(a).getTime()) / 86400000)) }
@@ -63,6 +102,14 @@ export default function ReservasPage() {
   }
 
   useEffect(() => { carregar() }, [])
+
+  // Recalcula valor sempre que campos relevantes mudam
+  useEffect(() => {
+    if (nova.data_inicio && nova.data_fim && nova.hospedes && nova.tipo_diaria) {
+      const v = calcularValor(nova)
+      if (v > 0) setNova(p => ({ ...p, valor_total: v.toFixed(2) }))
+    }
+  }, [nova.data_inicio, nova.data_fim, nova.hospedes, nova.tipo_diaria, nova.refeicoes, nova.desjejum, nova.almoco, nova.jantar, nova.criancas_isentas])
 
   async function salvarNova() {
     if (!nova.nome || !nova.data_inicio || !nova.data_fim || !nova.hospedes) return
@@ -363,8 +410,27 @@ export default function ReservasPage() {
                 </div>
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
+              {/* Tipo de diária */}
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>Tipo de Diária (preços 2026)</label>
+                <select value={nova.tipo_diaria} onChange={e => setNova(p => ({ ...p, tipo_diaria: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }}>
+                  {tiposDiaria.map(t => (
+                    <option key={t.key} value={t.key}>
+                      {t.label} — R$ {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}{t.porPessoa ? '/pessoa/noite' : ' (fixo)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Crianças isentas */}
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>Crianças até 7 anos (isentas)</label>
+                  <input type="number" min="0" value={nova.criancas_isentas} onChange={e => setNova(p => ({ ...p, criancas_isentas: e.target.value }))}
+                    placeholder="0" className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }} />
+                </div>
+                <div className="flex-1">
                   <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>Status</label>
                   <select value={nova.status} onChange={e => setNova(p => ({ ...p, status: e.target.value }))}
                     className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }}>
@@ -373,18 +439,52 @@ export default function ReservasPage() {
                     <option value="concluida">Concluída</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>Valor Total (R$)</label>
-                  <input type="number" step="0.01" value={nova.valor_total} onChange={e => setNova(p => ({ ...p, valor_total: e.target.value }))}
-                    placeholder="0,00" className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }} />
-                </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <input type="checkbox" id="ref2" checked={nova.refeicoes} onChange={e => setNova(p => ({ ...p, refeicoes: e.target.checked }))}
-                  className="w-4 h-4 rounded" style={{ accentColor: '#006494' }} />
-                <label htmlFor="ref2" className="text-sm" style={{ color: '#374151' }}>Inclui serviço de alimentação</label>
+              {/* Alimentação */}
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <input type="checkbox" id="ref2" checked={nova.refeicoes} onChange={e => setNova(p => ({ ...p, refeicoes: e.target.checked }))}
+                    className="w-4 h-4 rounded" style={{ accentColor: '#006494' }} />
+                  <label htmlFor="ref2" className="text-sm font-semibold" style={{ color: '#374151' }}>Inclui alimentação (R$ 40,00/pessoa/refeição)</label>
+                </div>
+                {nova.refeicoes && (
+                  <div className="flex gap-4 ml-7">
+                    {[['desjejum', '☕ Desjejum'], ['almoco', '☀️ Almoço'], ['jantar', '🌙 Jantar']].map(([f, label]) => (
+                      <label key={f} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" checked={nova[f as 'desjejum' | 'almoco' | 'jantar']}
+                          onChange={e => setNova(p => ({ ...p, [f]: e.target.checked }))}
+                          className="w-4 h-4 rounded" style={{ accentColor: '#006494' }} />
+                        <span style={{ color: '#374151' }}>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Resumo do valor */}
+              {nova.data_inicio && nova.data_fim && nova.hospedes && (
+                <div className="rounded-xl p-4" style={{ background: '#F0F9FF', border: '1px solid #BAE6FD' }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold mb-0.5" style={{ color: '#0369A1' }}>Valor Total Calculado</div>
+                      <div className="text-xs" style={{ color: '#6B7280' }}>
+                        {noites(nova.data_inicio, nova.data_fim)} noite(s) ·{' '}
+                        {parseInt(nova.hospedes) - (parseInt(nova.criancas_isentas) || 0)} pagantes
+                        {nova.refeicoes ? ' · com alimentação' : ''}
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold" style={{ color: '#006494' }}>
+                      R$ {nova.valor_total ? parseFloat(nova.valor_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <label className="block text-xs font-semibold mb-1" style={{ color: '#0369A1' }}>Ajustar valor manualmente (opcional)</label>
+                    <input type="number" step="0.01" value={nova.valor_total} onChange={e => setNova(p => ({ ...p, valor_total: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg border text-sm outline-none" style={{ borderColor: '#BAE6FD', color: '#374151' }} />
+                  </div>
+                </div>
+              )}
 
               {/* Seleção de cardápio por dia */}
               {nova.refeicoes && nova.data_inicio && nova.data_fim && (
