@@ -2,8 +2,7 @@
 import { MapPin, Navigation, Share2, Phone, Mail } from 'lucide-react'
 
 export default function Localizacao() {
-  const endereco = 'CATRE Penedo, Penedo - Alagoas, Brasil'
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`
+  const mapsUrl = 'https://share.google/BI2fcSG4sqXmHqoJZ'
 
   return (
     <section id="localizacao" className="py-20 px-4" style={{ background: '#E8F4F8' }}>
@@ -25,7 +24,7 @@ export default function Localizacao() {
           >
             <iframe
               title="Localização CATRE Penedo"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d62055.35397617!2d-36.59!3d-10.28!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x70471c6534ed037%3A0xf3ef44dbccdba5e3!2sPenedo%2C%20Alagoas!5e0!3m2!1spt!2sbr!4v1"
+              src="https://maps.google.com/maps?q=CATRE+Penedo+Alagoas&output=embed&hl=pt"
               width="100%"
               height="100%"
               style={{ border: 0 }}
