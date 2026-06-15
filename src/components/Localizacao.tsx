@@ -51,9 +51,9 @@ export default function Localizacao() {
                 <div>
                   <h3 className="font-bold mb-1" style={{ color: '#13293D' }}>Endereço</h3>
                   <p className="text-sm leading-relaxed" style={{ color: '#6B7280' }}>
-                    CATRE Penedo<br />
-                    Penedo — Alagoas, Brasil<br />
-                    CEP: 57200-000
+                    Av. Casa das Pedras, 646<br />
+                    Jardim Martineli — Itatiaia, RJ<br />
+                    CEP: 27580-000
                   </p>
                 </div>
               </div>
@@ -67,12 +67,12 @@ export default function Localizacao() {
               <h3 className="font-bold mb-4" style={{ color: '#13293D' }}>Contato</h3>
               <div className="space-y-3">
                 <a
-                  href="tel:+558200000000"
+                  href="tel:+552435511223"
                   className="flex items-center gap-3 text-sm hover:opacity-80 transition-opacity"
                   style={{ color: '#006494' }}
                 >
                   <Phone size={16} />
-                  (82) 0000-0000
+                  (24) 3551-1223
                 </a>
                 <a
                   href="mailto:catre@adventistars.org.br"
@@ -120,9 +120,10 @@ export default function Localizacao() {
             >
               <h4 className="font-semibold mb-3 text-sm" style={{ color: '#A8DADC' }}>Como Chegar</h4>
               <ul className="text-xs space-y-1.5 opacity-80 leading-relaxed">
-                <li>🚗 De Maceió: BR-316 em direção a Penedo (~120km, 1h45)</li>
-                <li>🚌 Ônibus: Terminal Rodoviário de Penedo</li>
-                <li>✈️ Aeroporto mais próximo: Maceió (HZ, Zumbi dos Palmares)</li>
+                <li>🚗 Do Rio de Janeiro: Presidente Dutra (BR-116) em direção a Itatiaia (~165km, 2h)</li>
+                <li>🚗 De São Paulo: Presidente Dutra (BR-116) em direção a Itatiaia (~330km, 3h30)</li>
+                <li>🚌 Ônibus: Terminal Rodoviário de Itatiaia</li>
+                <li>✈️ Aeroporto mais próximo: Galeão (GIG) ou Guarulhos (GRU)</li>
               </ul>
             </div>
           </div>
