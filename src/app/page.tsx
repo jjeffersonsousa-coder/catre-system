@@ -3,8 +3,9 @@ import HeroBanner from '@/components/HeroBanner'
 import SobreCatre from '@/components/SobreCatre'
 import Estrutura from '@/components/Estrutura'
 import Galeria from '@/components/Galeria'
-import FAQ from '@/components/FAQ'
+import FormReserva from '@/components/FormReserva'
 import Depoimentos from '@/components/Depoimentos'
+import FAQ from '@/components/FAQ'
 import Localizacao from '@/components/Localizacao'
 import Footer from '@/components/Footer'
 
@@ -16,6 +17,7 @@ export default function Home() {
       <SobreCatre />
       <Estrutura />
       <Galeria />
+      <FormReserva />
       <Depoimentos />
       <FAQ />
       <Localizacao />

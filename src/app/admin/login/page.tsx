@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signIn } from '@/lib/auth'
+import { createSupabaseBrowser } from '@/lib/supabase-browser'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
 
 export default function LoginPage() {
@@ -16,7 +16,8 @@ export default function LoginPage() {
     e.preventDefault()
     setErro('')
     setLoading(true)
-    const { error } = await signIn(email, password)
+    const supabase = createSupabaseBrowser()
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
     if (error) {
       setErro('E-mail ou senha inválidos. Tente novamente.')

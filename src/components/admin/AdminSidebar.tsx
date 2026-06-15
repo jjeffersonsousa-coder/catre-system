@@ -12,7 +12,7 @@ import {
   BarChart3,
   LogOut,
 } from 'lucide-react'
-import { signOut } from '@/lib/auth'
+import { createSupabaseBrowser } from '@/lib/supabase-browser'
 
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -28,7 +28,8 @@ export default function AdminSidebar() {
   const router = useRouter()
 
   const handleLogout = async () => {
-    await signOut()
+    const supabase = createSupabaseBrowser()
+    await supabase.auth.signOut()
     router.push('/admin/login')
     router.refresh()
   }
