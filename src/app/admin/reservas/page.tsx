@@ -1,7 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, List, Calendar, X, Check, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
+import { Plus, List, Calendar, X, Check, ChevronLeft, ChevronRight, Eye, Pencil, History } from 'lucide-react'
 import { createSupabaseBrowser } from '@/lib/supabase-browser'
+
+type Historico = { id: string; alteracoes: Record<string, { antes: string; depois: string }>; usuario: string; created_at: string }
 
 type Reserva = {
   id: string; created_at: string; nome: string; email: string; telefone: string
@@ -84,6 +86,10 @@ export default function ReservasPage() {
   const [view, setView] = useState<'lista' | 'calendario'>('lista')
   const [filtro, setFiltro] = useState('todos')
   const [selecionada, setSelecionada] = useState<Reserva | null>(null)
+  const [abaDetalhe, setAbaDetalhe] = useState<'info' | 'historico'>('info')
+  const [editando, setEditando] = useState(false)
+  const [editForm, setEditForm] = useState<Partial<Reserva>>({})
+  const [historico, setHistorico] = useState<Historico[]>([])
   const [novaModal, setNovaModal] = useState(false)
   const [nova, setNova] = useState<NovaReserva>(novaReservaInicial)
   const [salvando, setSalvando] = useState(false)
@@ -134,6 +140,61 @@ export default function ReservasPage() {
     setNova(novaReservaInicial)
     setCardapioSel({})
     carregar()
+  }
+
+  async function abrirDetalhe(r: Reserva) {
+    setSelecionada(r)
+    setAbaDetalhe('info')
+    setEditando(false)
+    const { data } = await sb.from('reservas_historico').select('*').eq('reserva_id', r.id).order('created_at', { ascending: false })
+    setHistorico((data ?? []) as Historico[])
+  }
+
+  function abrirEdicao() {
+    if (!selecionada) return
+    setEditForm({ ...selecionada })
+    setEditando(true)
+  }
+
+  async function salvarEdicao() {
+    if (!selecionada || !editForm) return
+    setSalvando(true)
+
+    const rotulos: Record<string, string> = {
+      nome: 'Nome', email: 'E-mail', telefone: 'Telefone', igreja: 'Igreja/Org.',
+      nome_evento: 'Nome do Evento', tipo_evento: 'Tipo de Evento',
+      data_inicio: 'Chegada', data_fim: 'Saída', hospedes: 'Hóspedes',
+      status: 'Status', valor_total: 'Valor Total', observacao_interna: 'Obs. Interna',
+      refeicoes: 'Alimentação', mensagem: 'Mensagem',
+    }
+
+    const alteracoes: Record<string, { antes: string; depois: string }> = {}
+    for (const key of Object.keys(rotulos) as (keyof Reserva)[]) {
+      const antes = String(selecionada[key] ?? '')
+      const depois = String(editForm[key] ?? '')
+      if (antes !== depois) {
+        alteracoes[rotulos[key]] = { antes, depois }
+      }
+    }
+
+    await sb.from('reservas').update(editForm).eq('id', selecionada.id)
+
+    if (Object.keys(alteracoes).length > 0) {
+      await sb.from('reservas_historico').insert({
+        reserva_id: selecionada.id,
+        alteracoes,
+        usuario: 'Gestor',
+      })
+    }
+
+    setSalvando(false)
+    setEditando(false)
+    const updated = { ...selecionada, ...editForm } as Reserva
+    setSelecionada(updated)
+    setReservas(prev => prev.map(r => r.id === updated.id ? updated : r))
+    // Recarrega historico
+    const { data } = await sb.from('reservas_historico').select('*').eq('reserva_id', selecionada.id).order('created_at', { ascending: false })
+    setHistorico((data ?? []) as Historico[])
   }
 
   function diasEstadia(): string[] {
@@ -246,7 +307,7 @@ export default function ReservasPage() {
                           <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span>
                         </td>
                         <td className="px-5 py-4">
-                          <button onClick={() => setSelecionada(r)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80" style={{ background: '#EFF6FF', color: '#006494' }}>
+                          <button onClick={() => abrirDetalhe(r)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80" style={{ background: '#EFF6FF', color: '#006494' }}>
                             <Eye size={13} /> Ver
                           </button>
                         </td>
@@ -295,7 +356,7 @@ export default function ReservasPage() {
                     {dia}
                   </span>
                   {res.slice(0, 2).map(r => (
-                    <button key={r.id} onClick={() => setSelecionada(r)}
+                    <button key={r.id} onClick={() => abrirDetalhe(r)}
                       className="text-left text-xs px-1.5 py-0.5 rounded font-medium truncate w-full"
                       style={{ background: statusCfg[r.status]?.bg, color: statusCfg[r.status]?.color }}>
                       {r.nome_evento || r.nome.split(' ')[0]}
@@ -321,38 +382,197 @@ export default function ReservasPage() {
         </div>
       )}
 
-      {/* Modal detalhes */}
+      {/* Modal detalhes / edição */}
       {selecionada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}
-          onClick={e => { if (e.target === e.currentTarget) setSelecionada(null) }}>
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-            <div className="px-6 py-5 border-b flex items-center justify-between" style={{ borderColor: '#F3F4F6' }}>
-              <h2 className="font-bold text-lg" style={{ color: '#13293D' }}>Detalhes da Reserva</h2>
-              <button onClick={() => setSelecionada(null)} style={{ color: '#9CA3AF' }}><X size={20} /></button>
+          onClick={e => { if (e.target === e.currentTarget) { setSelecionada(null); setEditando(false) } }}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col" style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+
+            {/* Header */}
+            <div className="px-6 py-4 border-b flex items-center justify-between flex-shrink-0" style={{ borderColor: '#F3F4F6' }}>
+              <div className="flex items-center gap-3">
+                <span className="text-sm px-3 py-1 rounded-full font-bold" style={{ background: statusCfg[selecionada.status]?.bg, color: statusCfg[selecionada.status]?.color }}>
+                  {statusCfg[selecionada.status]?.label}
+                </span>
+                <h2 className="font-bold text-base" style={{ color: '#13293D' }}>
+                  {selecionada.nome_evento || selecionada.nome}
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                {!editando && (
+                  <button onClick={abrirEdicao} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                    style={{ background: '#EFF6FF', color: '#006494' }}>
+                    <Pencil size={13} /> Editar
+                  </button>
+                )}
+                <button onClick={() => { setSelecionada(null); setEditando(false) }} style={{ color: '#9CA3AF' }}><X size={20} /></button>
+              </div>
             </div>
-            <div className="p-6 space-y-4">
-              <span className="text-sm px-3 py-1 rounded-full font-bold" style={{ background: statusCfg[selecionada.status]?.bg, color: statusCfg[selecionada.status]?.color }}>
-                {statusCfg[selecionada.status]?.label}
-              </span>
-              <div className="grid grid-cols-2 gap-4 mt-3">
-                {[
-                  { l: 'Nome', v: selecionada.nome }, { l: 'Igreja', v: selecionada.igreja },
-                  { l: 'E-mail', v: selecionada.email }, { l: 'Telefone', v: selecionada.telefone },
-                  { l: 'Evento', v: selecionada.tipo_evento }, { l: 'Hóspedes', v: String(selecionada.hospedes) },
-                  { l: 'Chegada', v: fmt(selecionada.data_inicio) }, { l: 'Saída', v: fmt(selecionada.data_fim) },
-                  { l: 'Noites', v: String(noites(selecionada.data_inicio, selecionada.data_fim)) },
-                  { l: 'Valor Total', v: selecionada.valor_total ? `R$ ${Number(selecionada.valor_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não informado' },
-                ].map(({ l, v }) => (
-                  <div key={l}>
-                    <div className="text-xs font-semibold mb-0.5" style={{ color: '#9CA3AF' }}>{l}</div>
-                    <div className="text-sm" style={{ color: '#13293D' }}>{v}</div>
-                  </div>
+
+            {/* Abas */}
+            {!editando && (
+              <div className="flex border-b flex-shrink-0" style={{ borderColor: '#F3F4F6' }}>
+                {([['info', 'Informações'], ['historico', 'Histórico de Alterações']] as const).map(([k, label]) => (
+                  <button key={k} onClick={() => setAbaDetalhe(k)}
+                    className="px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-1.5"
+                    style={{ borderColor: abaDetalhe === k ? '#006494' : 'transparent', color: abaDetalhe === k ? '#006494' : '#9CA3AF' }}>
+                    {k === 'historico' && <History size={14} />}{label}
+                    {k === 'historico' && historico.length > 0 && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: '#EFF6FF', color: '#006494' }}>{historico.length}</span>
+                    )}
+                  </button>
                 ))}
               </div>
-              {selecionada.observacao_interna && (
+            )}
+
+            {/* Conteúdo */}
+            <div className="overflow-y-auto flex-1 p-6">
+
+              {/* Aba Informações */}
+              {!editando && abaDetalhe === 'info' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { l: 'Responsável', v: selecionada.nome }, { l: 'Igreja / Org.', v: selecionada.igreja },
+                      { l: 'E-mail', v: selecionada.email }, { l: 'Telefone', v: selecionada.telefone },
+                      { l: 'Nome do Evento', v: selecionada.nome_evento || '—' }, { l: 'Tipo de Evento', v: selecionada.tipo_evento },
+                      { l: 'Hóspedes', v: String(selecionada.hospedes) }, { l: 'Noites', v: String(noites(selecionada.data_inicio, selecionada.data_fim)) },
+                      { l: 'Chegada', v: fmt(selecionada.data_inicio) }, { l: 'Saída', v: fmt(selecionada.data_fim) },
+                      { l: 'Alimentação', v: selecionada.refeicoes ? 'Sim' : 'Não' },
+                      { l: 'Valor Total', v: selecionada.valor_total ? `R$ ${Number(selecionada.valor_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não informado' },
+                    ].map(({ l, v }) => (
+                      <div key={l}>
+                        <div className="text-xs font-semibold mb-0.5" style={{ color: '#9CA3AF' }}>{l}</div>
+                        <div className="text-sm" style={{ color: '#13293D' }}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {selecionada.mensagem && (
+                    <div>
+                      <div className="text-xs font-semibold mb-1" style={{ color: '#9CA3AF' }}>Mensagem do solicitante</div>
+                      <p className="text-sm p-3 rounded-lg" style={{ background: '#F9FAFB', color: '#374151' }}>{selecionada.mensagem}</p>
+                    </div>
+                  )}
+                  {selecionada.observacao_interna && (
+                    <div>
+                      <div className="text-xs font-semibold mb-1" style={{ color: '#9CA3AF' }}>Obs. Interna</div>
+                      <p className="text-sm p-3 rounded-lg" style={{ background: '#FFFBEB', color: '#374151' }}>{selecionada.observacao_interna}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Aba Histórico */}
+              {!editando && abaDetalhe === 'historico' && (
                 <div>
-                  <div className="text-xs font-semibold mb-1" style={{ color: '#9CA3AF' }}>Obs. Interna</div>
-                  <p className="text-sm p-3 rounded-lg" style={{ background: '#F9FAFB', color: '#374151' }}>{selecionada.observacao_interna}</p>
+                  {historico.length === 0 ? (
+                    <div className="py-12 text-center">
+                      <History size={36} className="mx-auto mb-3" style={{ color: '#D1D5DB' }} />
+                      <p className="text-sm" style={{ color: '#9CA3AF' }}>Nenhuma alteração registrada ainda.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {historico.map(h => (
+                        <div key={h.id} className="rounded-xl border p-4" style={{ borderColor: '#E5E7EB' }}>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-bold px-2 py-1 rounded-lg" style={{ background: '#EFF6FF', color: '#006494' }}>
+                              {h.usuario}
+                            </span>
+                            <span className="text-xs" style={{ color: '#9CA3AF' }}>
+                              {new Date(h.created_at).toLocaleString('pt-BR')}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {Object.entries(h.alteracoes).map(([campo, { antes, depois }]) => (
+                              <div key={campo} className="text-xs rounded-lg p-2.5" style={{ background: '#F9FAFB' }}>
+                                <span className="font-semibold" style={{ color: '#374151' }}>{campo}: </span>
+                                <span className="line-through" style={{ color: '#EF4444' }}>{antes || '(vazio)'}</span>
+                                <span style={{ color: '#9CA3AF' }}> → </span>
+                                <span className="font-semibold" style={{ color: '#059669' }}>{depois || '(vazio)'}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Formulário de edição */}
+              {editando && (
+                <div className="space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {[
+                      { l: 'Nome completo', f: 'nome' }, { l: 'Igreja / Org.', f: 'igreja' },
+                      { l: 'E-mail', f: 'email' }, { l: 'Telefone', f: 'telefone' },
+                      { l: 'Nome do Evento', f: 'nome_evento' },
+                    ].map(({ l, f }) => (
+                      <div key={f}>
+                        <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>{l}</label>
+                        <input type="text" value={(editForm[f as keyof Reserva] as string) ?? ''}
+                          onChange={e => setEditForm(p => ({ ...p, [f]: e.target.value }))}
+                          className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }} />
+                      </div>
+                    ))}
+                    <div>
+                      <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>Tipo de Evento</label>
+                      <select value={editForm.tipo_evento ?? ''} onChange={e => setEditForm(p => ({ ...p, tipo_evento: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }}>
+                        {tiposEvento.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>Chegada</label>
+                      <input type="date" value={editForm.data_inicio ?? ''}
+                        onChange={e => setEditForm(p => ({ ...p, data_inicio: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>Saída</label>
+                      <input type="date" value={editForm.data_fim ?? ''}
+                        onChange={e => setEditForm(p => ({ ...p, data_fim: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>Hóspedes</label>
+                      <input type="number" min="1" value={editForm.hospedes ?? ''}
+                        onChange={e => setEditForm(p => ({ ...p, hospedes: parseInt(e.target.value) }))}
+                        className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }} />
+                    </div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>Status</label>
+                      <select value={editForm.status ?? ''} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }}>
+                        {Object.entries(statusCfg).map(([k, { label }]) => <option key={k} value={k}>{label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>Valor Total (R$)</label>
+                      <input type="number" step="0.01" value={editForm.valor_total ?? ''}
+                        onChange={e => setEditForm(p => ({ ...p, valor_total: parseFloat(e.target.value) }))}
+                        className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>Observação Interna</label>
+                    <textarea rows={3} value={editForm.observacao_interna ?? ''}
+                      onChange={e => setEditForm(p => ({ ...p, observacao_interna: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none resize-none" style={{ borderColor: '#E5E7EB', color: '#374151' }} />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button onClick={() => setEditando(false)} className="flex-1 py-3 rounded-xl text-sm font-semibold border-2 hover:bg-gray-50"
+                      style={{ borderColor: '#E5E7EB', color: '#374151' }}>Cancelar</button>
+                    <button onClick={salvarEdicao} disabled={salvando}
+                      className="flex-1 py-3 rounded-xl text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                      style={{ background: '#006494' }}>
+                      {salvando ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Check size={15} /> Salvar Alterações</>}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
