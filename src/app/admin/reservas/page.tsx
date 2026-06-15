@@ -441,14 +441,26 @@ export default function ReservasPage() {
                 </div>
               </div>
 
-              {/* Alimentação */}
+              {/* Alimentação — mínimo 50 pessoas */}
               <div>
-                <div className="flex items-center gap-3 mb-3">
-                  <input type="checkbox" id="ref2" checked={nova.refeicoes} onChange={e => setNova(p => ({ ...p, refeicoes: e.target.checked }))}
-                    className="w-4 h-4 rounded" style={{ accentColor: '#006494' }} />
-                  <label htmlFor="ref2" className="text-sm font-semibold" style={{ color: '#374151' }}>Inclui alimentação (R$ 40,00/pessoa/refeição)</label>
-                </div>
-                {nova.refeicoes && (
+                {parseInt(nova.hospedes) >= 50 ? (
+                  <div className="flex items-center gap-3 mb-3">
+                    <input type="checkbox" id="ref2" checked={nova.refeicoes} onChange={e => setNova(p => ({ ...p, refeicoes: e.target.checked }))}
+                      className="w-4 h-4 rounded" style={{ accentColor: '#006494' }} />
+                    <label htmlFor="ref2" className="text-sm font-semibold" style={{ color: '#374151' }}>Inclui alimentação (R$ 40,00/pessoa/refeição)</label>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-2 p-3 rounded-xl mb-3" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                    <span className="text-sm mt-0.5">⚠️</span>
+                    <p className="text-xs" style={{ color: '#92400E' }}>
+                      Alimentação disponível apenas para grupos com <strong>50+ pessoas</strong>.
+                      {nova.hospedes && parseInt(nova.hospedes) > 0 && parseInt(nova.hospedes) < 50
+                        ? ` (${nova.hospedes} informado — faltam ${50 - parseInt(nova.hospedes)})`
+                        : ''}
+                    </p>
+                  </div>
+                )}
+                {nova.refeicoes && parseInt(nova.hospedes) >= 50 && (
                   <div className="flex gap-4 ml-7">
                     {[['desjejum', '☕ Desjejum'], ['almoco', '☀️ Almoço'], ['jantar', '🌙 Jantar']].map(([f, label]) => (
                       <label key={f} className="flex items-center gap-2 text-sm cursor-pointer">

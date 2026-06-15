@@ -180,14 +180,27 @@ export default function ReservaHotel() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <input type="checkbox" id="refeicoes2" checked={form.refeicoes}
-                    onChange={e => set('refeicoes', e.target.checked)}
-                    className="w-4 h-4 rounded" style={{ accentColor: '#006494' }} />
-                  <label htmlFor="refeicoes2" className="text-sm" style={{ color: '#374151' }}>
-                    Incluir serviço de alimentação
-                  </label>
-                </div>
+                {/* Alimentação — mínimo 50 pessoas */}
+                {parseInt(form.hospedes) >= 50 ? (
+                  <div className="flex items-center gap-3">
+                    <input type="checkbox" id="refeicoes2" checked={form.refeicoes}
+                      onChange={e => set('refeicoes', e.target.checked)}
+                      className="w-4 h-4 rounded" style={{ accentColor: '#006494' }} />
+                    <label htmlFor="refeicoes2" className="text-sm" style={{ color: '#374151' }}>
+                      Incluir serviço de alimentação
+                    </label>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                    <span className="text-base mt-0.5">⚠️</span>
+                    <p className="text-sm" style={{ color: '#92400E' }}>
+                      O serviço de alimentação está disponível apenas para grupos a partir de <strong>50 pessoas</strong>.
+                      {form.hospedes && parseInt(form.hospedes) > 0 && parseInt(form.hospedes) < 50
+                        ? ` Seu grupo tem ${form.hospedes} pessoa(s) — faltam ${50 - parseInt(form.hospedes)} para habilitar este serviço.`
+                        : ' Informe o número de hóspedes para verificar a disponibilidade.'}
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>Observações</label>
