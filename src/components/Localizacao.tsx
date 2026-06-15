@@ -123,7 +123,7 @@ export default function Localizacao() {
                 <li>🚗 Do Rio de Janeiro: Presidente Dutra (BR-116) em direção a Itatiaia (~165km, 2h)</li>
                 <li>🚗 De São Paulo: Presidente Dutra (BR-116) em direção a Itatiaia (~330km, 3h30)</li>
                 <li>🚌 Ônibus: Terminal Rodoviário de Itatiaia</li>
-                <li>✈️ Aeroporto mais próximo: Galeão (GIG) ou Guarulhos (GRU)</li>
+                <li>✈️ Aeroporto mais próximo: Galeão (GIG) ou Santos Dumont (SDU)</li>
               </ul>
             </div>
           </div>
