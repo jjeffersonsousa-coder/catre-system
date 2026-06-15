@@ -2,7 +2,7 @@
 import { MapPin, Navigation, Share2, Phone, Mail } from 'lucide-react'
 
 export default function Localizacao() {
-  const mapsUrl = 'https://share.google/BI2fcSG4sqXmHqoJZ'
+  const mapsUrl = 'https://share.google/MfOE0mo71Qecuv8Ah'
 
   return (
     <section id="localizacao" className="py-20 px-4" style={{ background: '#E8F4F8' }}>
