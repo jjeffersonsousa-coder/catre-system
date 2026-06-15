@@ -1,15 +1,17 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, List, Calendar, X, Check, ChevronLeft, ChevronRight, Eye, Pencil, History } from 'lucide-react'
+import { Plus, List, Calendar, X, Check, ChevronLeft, ChevronRight, Eye, Pencil, History, BedDouble, Copy, Link2, UserPlus, Trash2 } from 'lucide-react'
 import { createSupabaseBrowser } from '@/lib/supabase-browser'
 
 type Historico = { id: string; alteracoes: Record<string, { antes: string; depois: string }>; usuario: string; created_at: string }
+type Quarto = { id: string; nome: string; localizacao: string; capacidade: number; climatizacao: string }
+type ReservaQuarto = { id: string; quarto_id: string; hospedes: string[] }
 
 type Reserva = {
   id: string; created_at: string; nome: string; email: string; telefone: string
   igreja: string; nome_evento: string | null; tipo_evento: string; data_inicio: string; data_fim: string
   hospedes: number; refeicoes: boolean; mensagem: string | null
-  status: string; observacao_interna: string | null; valor_total: number | null
+  status: string; observacao_interna: string | null; valor_total: number | null; token: string | null
 }
 
 const statusCfg: Record<string, { label: string; color: string; bg: string }> = {
@@ -86,10 +88,13 @@ export default function ReservasPage() {
   const [view, setView] = useState<'lista' | 'calendario'>('lista')
   const [filtro, setFiltro] = useState('todos')
   const [selecionada, setSelecionada] = useState<Reserva | null>(null)
-  const [abaDetalhe, setAbaDetalhe] = useState<'info' | 'historico'>('info')
+  const [abaDetalhe, setAbaDetalhe] = useState<'info' | 'quartos' | 'historico'>('info')
   const [editando, setEditando] = useState(false)
   const [editForm, setEditForm] = useState<Partial<Reserva>>({})
   const [historico, setHistorico] = useState<Historico[]>([])
+  const [quartosList, setQuartosList] = useState<Quarto[]>([])
+  const [reservaQuartos, setReservaQuartos] = useState<ReservaQuarto[]>([])
+  const [linkCopiado, setLinkCopiado] = useState(false)
   const [novaModal, setNovaModal] = useState(false)
   const [nova, setNova] = useState<NovaReserva>(novaReservaInicial)
   const [salvando, setSalvando] = useState(false)
@@ -146,8 +151,43 @@ export default function ReservasPage() {
     setSelecionada(r)
     setAbaDetalhe('info')
     setEditando(false)
-    const { data } = await sb.from('reservas_historico').select('*').eq('reserva_id', r.id).order('created_at', { ascending: false })
-    setHistorico((data ?? []) as Historico[])
+    const [{ data: hist }, { data: qts }, { data: rq }] = await Promise.all([
+      sb.from('reservas_historico').select('*').eq('reserva_id', r.id).order('created_at', { ascending: false }),
+      sb.from('quartos').select('id,nome,localizacao,capacidade,climatizacao').eq('ativo', true).order('numero'),
+      sb.from('reserva_quartos').select('id,quarto_id,hospedes').eq('reserva_id', r.id),
+    ])
+    setHistorico((hist ?? []) as Historico[])
+    setQuartosList((qts ?? []) as Quarto[])
+    setReservaQuartos(((rq ?? []) as { id: string; quarto_id: string; hospedes: string[] | null }[]).map(x => ({ ...x, hospedes: x.hospedes ?? [] })))
+  }
+
+  async function toggleQuartoReserva(quartoId: string) {
+    if (!selecionada) return
+    const existente = reservaQuartos.find(rq => rq.quarto_id === quartoId)
+    if (existente) {
+      await sb.from('reserva_quartos').delete().eq('id', existente.id)
+      setReservaQuartos(prev => prev.filter(rq => rq.quarto_id !== quartoId))
+    } else {
+      const { data } = await sb.from('reserva_quartos').insert({ reserva_id: selecionada.id, quarto_id: quartoId, hospedes: [] }).select().single()
+      if (data) setReservaQuartos(prev => [...prev, { id: data.id, quarto_id: quartoId, hospedes: [] }])
+    }
+  }
+
+  async function atualizarHospedesQuarto(rqId: string, hospedes: string[]) {
+    await sb.from('reserva_quartos').update({ hospedes }).eq('id', rqId)
+    setReservaQuartos(prev => prev.map(rq => rq.id === rqId ? { ...rq, hospedes } : rq))
+  }
+
+  function getLinkPublico(token: string | null) {
+    if (!token) return ''
+    return `${window.location.origin}/reserva/${token}/quartos`
+  }
+
+  async function copiarLink() {
+    if (!selecionada?.token) return
+    await navigator.clipboard.writeText(getLinkPublico(selecionada.token))
+    setLinkCopiado(true)
+    setTimeout(() => setLinkCopiado(false), 2500)
   }
 
   function abrirEdicao() {
@@ -412,13 +452,19 @@ export default function ReservasPage() {
             {/* Abas */}
             {!editando && (
               <div className="flex border-b flex-shrink-0" style={{ borderColor: '#F3F4F6' }}>
-                {([['info', 'Informações'], ['historico', 'Histórico de Alterações']] as const).map(([k, label]) => (
-                  <button key={k} onClick={() => setAbaDetalhe(k)}
-                    className="px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-1.5"
+                {([
+                  ['info', 'Informações', null],
+                  ['quartos', 'Distribuição de Quartos', reservaQuartos.length],
+                  ['historico', 'Histórico', historico.length],
+                ] as [string, string, number | null][]).map(([k, label, count]) => (
+                  <button key={k} onClick={() => setAbaDetalhe(k as 'info' | 'quartos' | 'historico')}
+                    className="px-4 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-1.5"
                     style={{ borderColor: abaDetalhe === k ? '#006494' : 'transparent', color: abaDetalhe === k ? '#006494' : '#9CA3AF' }}>
-                    {k === 'historico' && <History size={14} />}{label}
-                    {k === 'historico' && historico.length > 0 && (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: '#EFF6FF', color: '#006494' }}>{historico.length}</span>
+                    {k === 'quartos' && <BedDouble size={14} />}
+                    {k === 'historico' && <History size={14} />}
+                    {label}
+                    {count !== null && count > 0 && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: '#EFF6FF', color: '#006494' }}>{count}</span>
                     )}
                   </button>
                 ))}
@@ -494,6 +540,96 @@ export default function ReservasPage() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Aba Quartos */}
+              {!editando && abaDetalhe === 'quartos' && (
+                <div className="space-y-4">
+                  {/* Link público */}
+                  {selecionada.status === 'confirmada' && (
+                    <div className="rounded-xl p-4" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: '#059669' }}>
+                          <Link2 size={15} /> Link para o responsável preencher os quartos
+                        </div>
+                        <button onClick={copiarLink}
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
+                          style={{ background: linkCopiado ? '#059669' : '#ECFDF5', color: linkCopiado ? 'white' : '#059669' }}>
+                          <Copy size={12} /> {linkCopiado ? 'Copiado!' : 'Copiar link'}
+                        </button>
+                      </div>
+                      <p className="text-xs truncate font-mono p-2 rounded-lg" style={{ background: 'white', color: '#374151' }}>
+                        {getLinkPublico(selecionada.token)}
+                      </p>
+                    </div>
+                  )}
+                  {selecionada.status !== 'confirmada' && (
+                    <div className="p-3 rounded-xl text-sm" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
+                      ⚠️ O link público só é gerado após a reserva ser <strong>confirmada</strong>.
+                    </div>
+                  )}
+
+                  {/* Seleção de quartos */}
+                  <div>
+                    <p className="text-xs font-semibold mb-3" style={{ color: '#374151' }}>
+                      Selecione os quartos desta reserva e cadastre os hóspedes:
+                    </p>
+                    <div className="grid sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                      {quartosList.map(q => {
+                        const rq = reservaQuartos.find(x => x.quarto_id === q.id)
+                        const ativo = !!rq
+                        return (
+                          <button key={q.id} type="button" onClick={() => toggleQuartoReserva(q.id)}
+                            className="text-left px-3 py-2.5 rounded-xl border-2 text-xs transition-all"
+                            style={{ borderColor: ativo ? '#006494' : '#E5E7EB', background: ativo ? '#E8F4F8' : 'white', color: ativo ? '#006494' : '#374151' }}>
+                            <div className="font-bold">{q.nome}</div>
+                            <div className="opacity-60 text-[10px]">{q.climatizacao === 'ar_condicionado' ? 'A/C' : 'Vent.'} · {q.capacidade} leitos · {rq ? `${rq.hospedes.length} cadastrados` : 'não selecionado'}</div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Hóspedes por quarto */}
+                  {reservaQuartos.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold" style={{ color: '#374151' }}>Nomes dos hóspedes por quarto:</p>
+                      {reservaQuartos.map(rq => {
+                        const q = quartosList.find(x => x.id === rq.quarto_id)
+                        if (!q) return null
+                        return (
+                          <div key={rq.id} className="rounded-xl border p-3" style={{ borderColor: '#E5E7EB' }}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-bold" style={{ color: '#13293D' }}>{q.nome}</span>
+                              <span className="text-xs" style={{ color: '#9CA3AF' }}>{rq.hospedes.length}/{q.capacidade} leitos</span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {rq.hospedes.map((nome, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                  <input type="text" value={nome}
+                                    onChange={e => {
+                                      const updated = [...rq.hospedes]; updated[i] = e.target.value
+                                      atualizarHospedesQuarto(rq.id, updated)
+                                    }}
+                                    className="flex-1 px-2.5 py-1.5 rounded-lg border text-xs outline-none" style={{ borderColor: '#E5E7EB', color: '#374151' }}
+                                    placeholder={`Hóspede ${i + 1}`} />
+                                  <button onClick={() => atualizarHospedesQuarto(rq.id, rq.hospedes.filter((_, j) => j !== i))}
+                                    className="p-1 rounded hover:bg-red-50"><Trash2 size={13} style={{ color: '#EF4444' }} /></button>
+                                </div>
+                              ))}
+                              {rq.hospedes.length < q.capacidade && (
+                                <button onClick={() => atualizarHospedesQuarto(rq.id, [...rq.hospedes, ''])}
+                                  className="flex items-center gap-1 text-xs font-semibold mt-1" style={{ color: '#006494' }}>
+                                  <UserPlus size={13} /> Adicionar hóspede
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
