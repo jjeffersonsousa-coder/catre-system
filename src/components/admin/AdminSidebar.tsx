@@ -1,0 +1,87 @@
+'use client'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import {
+  LayoutDashboard,
+  Wrench,
+  CalendarCheck,
+  Users,
+  Settings,
+  Home,
+  ChevronRight,
+  BarChart3,
+} from 'lucide-react'
+
+const navItems = [
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/manutencao', label: 'Manutenção', icon: Wrench },
+  { href: '/admin/reservas', label: 'Reservas', icon: CalendarCheck },
+  { href: '/admin/usuarios', label: 'Usuários', icon: Users },
+  { href: '/admin/relatorios', label: 'Relatórios', icon: BarChart3 },
+  { href: '/admin/configuracoes', label: 'Configurações', icon: Settings },
+]
+
+export default function AdminSidebar() {
+  const pathname = usePathname()
+
+  return (
+    <aside
+      className="hidden md:flex flex-col w-60 min-h-screen"
+      style={{ background: '#13293D' }}
+    >
+      {/* Logo */}
+      <div className="px-5 py-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+        <Link href="/admin" className="flex items-center gap-3">
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold"
+            style={{ background: '#006494' }}
+          >
+            C
+          </div>
+          <div>
+            <div className="text-white font-bold text-sm">CATRE</div>
+            <div className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Administração</div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-4 space-y-1">
+        {navItems.map((item) => {
+          const active = item.href === '/admin'
+            ? pathname === '/admin'
+            : pathname.startsWith(item.href)
+          const Icon = item.icon
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all"
+              style={{
+                background: active ? 'rgba(0,100,148,0.4)' : 'transparent',
+                color: active ? 'white' : 'rgba(255,255,255,0.6)',
+                borderLeft: active ? '3px solid #4D9FBF' : '3px solid transparent',
+              }}
+            >
+              <Icon size={17} />
+              {item.label}
+              {active && <ChevronRight size={14} className="ml-auto opacity-50" />}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* Back to site */}
+      <div className="px-3 py-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+        <Link
+          href="/"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all"
+          style={{ color: 'rgba(255,255,255,0.4)' }}
+        >
+          <Home size={16} />
+          Ver Site Público
+        </Link>
+      </div>
+    </aside>
+  )
+}
