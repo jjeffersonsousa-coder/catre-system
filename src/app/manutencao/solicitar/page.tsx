@@ -49,7 +49,7 @@ export default function SolicitarManutencao() {
       urgencia: form.urgencia,
     })
     setLoading(false)
-    if (error) { setErro('Erro ao enviar. Tente novamente.'); return }
+    if (error) { setErro(`Erro: ${error.message} (código: ${error.code})`); return }
     setEnviado(true)
   }
 
