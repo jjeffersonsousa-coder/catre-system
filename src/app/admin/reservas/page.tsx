@@ -246,8 +246,9 @@ export default function ReservasPage() {
   .vazio { font-size: 13px; color: #9CA3AF; font-style: italic; padding: 8px 0; }
   .rodape { margin-top: 28px; text-align: center; font-size: 11px; color: #9CA3AF; }
   @media print {
-    body { background: white; padding: 16px; }
+    body { background: white; padding: 16px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .quarto { box-shadow: none; border: 1px solid #E5E7EB; }
+    .cabecalho { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     @page { margin: 1.5cm; size: A4; }
   }
 </style></head><body>
@@ -264,7 +265,7 @@ export default function ReservasPage() {
   </div>
 </div>
 <div class="grade">${cartoes}</div>
-<div class="rodape">CATRE — Centro Adventista de Treinamento, Retiros e Eventos · Itatiaia, RJ</div>
+<div class="rodape">CATRE — Centro Adventista de Treinamento · Itatiaia, RJ</div>
 <script>window.onload = () => { window.print(); }<\/script>
 </body></html>`
 
@@ -382,10 +383,12 @@ export default function ReservasPage() {
   .edit-hint { position: fixed; top: 20px; left: 20px; background: #F97316; color: white; border-radius: 12px; padding: 10px 16px; font-size: 12px; font-weight: 600; z-index: 999; }
   @media print {
     .print-btn, .edit-hint { display: none !important; }
-    body { background: white; }
+    body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .page { padding: 0; }
     .card { box-shadow: none; border: 1px solid #E5E7EB; }
-    .header { border-radius: 12px; }
+    .header { border-radius: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .fin-total { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .checkin-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     @page { margin: 1.5cm; size: A4; }
   }
   [contenteditable]:focus { outline: 2px dashed #F97316; border-radius: 4px; }
@@ -396,7 +399,7 @@ export default function ReservasPage() {
   <!-- CABEÇALHO -->
   <div class="header">
     <div>
-      <div class="header-org">CATRE — Centro Adventista de Treinamento, Retiros e Eventos · ARS</div>
+      <div class="header-org">CATRE — Centro Adventista de Treinamento · ARS</div>
       <div class="header-titulo" contenteditable="true">${selecionada.nome_evento || selecionada.tipo_evento}</div>
       <div class="header-tipo" contenteditable="true">${selecionada.tipo_evento}</div>
     </div>
@@ -412,7 +415,7 @@ export default function ReservasPage() {
     <div class="card-titulo">Carta de Boas-Vindas</div>
     <div class="boas-vindas" contenteditable="true">
       <p>Prezado(a) <strong>${selecionada.nome}</strong>,</p><br>
-      <p>É com grande alegria que recebemos o seu grupo no <strong>CATRE — Centro Adventista de Treinamento, Retiros e Eventos</strong> da Associação Rio Sul.</p><br>
+      <p>É com grande alegria que recebemos o seu grupo no <strong>CATRE — Centro Adventista de Treinamento</strong> da Associação Rio Sul.</p><br>
       <p>Nosso espaço foi pensado para proporcionar um ambiente acolhedor, seguro e inspirador para a realização do seu evento. Contamos com toda uma estrutura preparada com carinho para que a experiência de vocês seja inesquecível.</p><br>
       <p>Nossa equipe está à disposição para auxiliar no que for necessário durante toda a estadia. Desejamos que este seja um momento de crescimento, comunhão e bênçãos para todos.</p><br>
       <p>Seja bem-vindo(a)!</p><br>
@@ -449,10 +452,10 @@ export default function ReservasPage() {
       </div>
     </div>
     <ul class="regras" style="margin-top:16px" contenteditable="true">
-      <li>O check-in será realizado na recepção, mediante apresentação de documento com foto.</li>
+      <li>O check-in será realizado a partir das 15h, se o evento iniciar à noite, ou às 10h se o evento iniciar com o almoço.</li>
       <li>Não é permitida a entrada de pessoas não cadastradas nas acomodações.</li>
-      <li>O check-out deve ser realizado até o horário indicado para evitar cobranças adicionais.</li>
-      <li>Em caso de necessidade de late check-out, consultar a administração com antecedência.</li>
+      <li>O check-out deve ser realizado até o horário indicado para a equipe ter tempo hábil para preparar o ambiente.</li>
+      <li>Nosso espaço não é pet friendly, portanto, não aceitamos animais de estimação.</li>
     </ul>
   </div>
 
@@ -497,7 +500,7 @@ export default function ReservasPage() {
   </div>
 
   <div class="footer">
-    CATRE — Centro Adventista de Treinamento, Retiros e Eventos<br>
+    CATRE — Centro Adventista de Treinamento<br>
     Associação Rio Sul da Igreja Adventista do Sétimo Dia · Itatiaia, RJ<br>
     Proposta gerada em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
   </div>

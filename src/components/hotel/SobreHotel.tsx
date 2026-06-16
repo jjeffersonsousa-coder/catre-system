@@ -44,7 +44,7 @@ export default function SobreHotel() {
             </h2>
             <div className="space-y-4 text-base leading-relaxed" style={{ color: '#4B5563' }}>
               <p>
-                O CATRE — Centro Adventista de Treinamento, Retiros e Eventos — é o principal centro de
+                O CATRE — Centro Adventista de Treinamento — é o principal centro de
                 capacitação e eventos da Associação Rio Sul da Igreja Adventista do Sétimo Dia, localizado
                 em Penedo, Itatiaia/RJ.
               </p>

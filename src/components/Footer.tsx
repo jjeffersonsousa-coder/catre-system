@@ -20,7 +20,7 @@ export default function Footer() {
               </div>
             </div>
             <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              Centro Adventista de Treinamento, Retiros e Eventos da Associação Rio Sul.
+              Centro Adventista de Treinamento da Associação Rio Sul.
             </p>
           </div>
 

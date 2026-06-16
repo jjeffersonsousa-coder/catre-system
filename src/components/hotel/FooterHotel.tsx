@@ -37,7 +37,7 @@ export default function FooterHotel() {
             </div>
 
             <p className="text-sm leading-relaxed mb-6 max-w-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              Centro Adventista de Treinamento, Retiros e Eventos — localizado em Penedo, Itatiaia/RJ.
+              Centro Adventista de Treinamento — localizado em Penedo, Itatiaia/RJ.
               Mais de 30 anos promovendo crescimento espiritual e capacitação.
             </p>
 

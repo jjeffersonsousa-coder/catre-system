@@ -41,7 +41,7 @@ export default function HeroBanner() {
         </h1>
 
         <p className="text-lg sm:text-xl opacity-80 max-w-2xl mx-auto mb-2">
-          Centro Adventista de Treinamento, Retiros e Eventos
+          Centro Adventista de Treinamento
         </p>
         <p className="text-base opacity-60 mb-10">
           da Associação Rio Sul
