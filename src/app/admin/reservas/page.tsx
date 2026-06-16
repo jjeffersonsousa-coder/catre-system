@@ -14,6 +14,7 @@ type Reserva = {
   hospedes: number; refeicoes: boolean; mensagem: string | null
   status: string; observacao_interna: string | null; valor_total: number | null; token: string | null
   tipo_diaria: string | null; criancas_isentas: number | null
+  coffee_break_plano: string | null; coffee_break_qtd: number | null
 }
 
 const statusCfg: Record<string, { label: string; color: string; bg: string }> = {
@@ -26,25 +27,33 @@ const statusCfg: Record<string, { label: string; color: string; bg: string }> = 
 const tiposEvento = ['Retiro Espiritual', 'Treinamento / Capacitação', 'Convenção', 'Acampamento de Jovens', 'Evento Familiar', 'Casamento', 'Outro']
 
 const tiposDiaria = [
-  { key: 'sem_roupa', label: 'Diária Eventos — Sem Roupa de Cama', valor: 220, porPessoa: true },
-  { key: 'com_roupa', label: 'Diária Eventos — Com Roupa de Cama', valor: 260, porPessoa: true },
-  { key: 'departamentos', label: 'Diária Eventos Departamentos', valor: 120, porPessoa: true },
-  { key: 'pastoral', label: 'Diária Família Pastoral e Funcionários', valor: 150, porPessoa: true },
-  { key: 'casamento', label: 'Diária Casamento (pacote fixo)', valor: 10000, porPessoa: false },
+  { key: 'sem_roupa', label: 'Diária Eventos — Sem Roupa de Cama', valor: 220, porPessoa: true, incluiAlim: false, descricao: 'Sem roupa de cama e sem alimentação' },
+  { key: 'com_roupa', label: 'Diária Eventos — Com Roupa de Cama', valor: 260, porPessoa: true, incluiAlim: true, descricao: 'Inclui roupa de cama + alimentação (3 refeições/dia)' },
+  { key: 'departamentos', label: 'Diária Eventos Departamentos', valor: 120, porPessoa: true, incluiAlim: false, descricao: 'Sem roupa de cama e sem alimentação' },
+  { key: 'pastoral', label: 'Diária Família Pastoral e Funcionários', valor: 150, porPessoa: true, incluiAlim: false, descricao: 'Sem roupa de cama e sem alimentação' },
+  { key: 'casamento', label: 'Diária Casamento (pacote fixo)', valor: 10000, porPessoa: false, incluiAlim: true, descricao: 'Inclui capela, 4 quartos e restaurante' },
 ]
-const PRECO_REFEICAO = 40 // por pessoa por refeição
+const PRECO_REFEICAO = 40 // por pessoa por refeição — apenas quando NÃO incluído na diária
+
+const coffeeBreakPlanos = [
+  { key: 'bronze', label: 'Bronze', valor: 30 },
+  { key: 'prata', label: 'Prata', valor: 40 },
+  { key: 'ouro', label: 'Ouro', valor: 55 },
+]
 
 type NovaReserva = {
   nome: string; email: string; telefone: string; igreja: string; nome_evento: string; tipo_evento: string
   data_inicio: string; data_fim: string; hospedes: string; tipo_diaria: string
   refeicoes: boolean; desjejum: boolean; almoco: boolean; jantar: boolean
   roupa_cama: boolean; criancas_isentas: string
+  coffee_break: boolean; coffee_break_plano: string; coffee_break_qtd: string
   mensagem: string; status: string; valor_total: string; observacao_interna: string
 }
 const novaReservaInicial: NovaReserva = {
   nome: '', email: '', telefone: '', igreja: '', nome_evento: '', tipo_evento: '', data_inicio: '', data_fim: '',
   hospedes: '', tipo_diaria: 'sem_roupa', refeicoes: false,
   desjejum: true, almoco: true, jantar: true, roupa_cama: false, criancas_isentas: '0',
+  coffee_break: false, coffee_break_plano: 'bronze', coffee_break_qtd: '1',
   mensagem: '', status: 'confirmada', valor_total: '', observacao_interna: '',
 }
 type CardapioSelecao = Record<string, { desjejum: number; almoco: number; jantar: number }>
@@ -61,11 +70,19 @@ function calcularValor(nova: NovaReserva): number {
 
   let total = td.porPessoa ? td.valor * pagantes * nts : td.valor
 
-  if (nova.refeicoes) {
+  // Alimentação só é cobrada separadamente se NÃO estiver inclusa na diária
+  if (nova.refeicoes && !td.incluiAlim) {
     const dias = diasEntre(nova.data_inicio, nova.data_fim).length
     const refeicoesPorDia = (nova.desjejum ? 1 : 0) + (nova.almoco ? 1 : 0) + (nova.jantar ? 1 : 0)
     total += PRECO_REFEICAO * pagantes * refeicoesPorDia * dias
   }
+
+  // Coffee Break
+  if (nova.coffee_break) {
+    const cb = coffeeBreakPlanos.find(p => p.key === nova.coffee_break_plano)
+    if (cb) total += cb.valor * pagantes * (parseInt(nova.coffee_break_qtd) || 1)
+  }
+
   return total
 }
 
@@ -128,7 +145,7 @@ export default function ReservasPage() {
       const v = calcularValor(nova)
       if (v > 0) setNova(p => ({ ...p, valor_total: v.toFixed(2) }))
     }
-  }, [nova.data_inicio, nova.data_fim, nova.hospedes, nova.tipo_diaria, nova.refeicoes, nova.desjejum, nova.almoco, nova.jantar, nova.criancas_isentas])
+  }, [nova.data_inicio, nova.data_fim, nova.hospedes, nova.tipo_diaria, nova.refeicoes, nova.desjejum, nova.almoco, nova.jantar, nova.criancas_isentas, nova.coffee_break, nova.coffee_break_plano, nova.coffee_break_qtd])
 
   async function salvarNova() {
     if (!nova.nome || !nova.data_inicio || !nova.data_fim || !nova.hospedes) return
@@ -142,6 +159,8 @@ export default function ReservasPage() {
       observacao_interna: nova.observacao_interna || null,
       tipo_diaria: nova.tipo_diaria,
       criancas_isentas: parseInt(nova.criancas_isentas) || 0,
+      coffee_break_plano: nova.coffee_break ? nova.coffee_break_plano : null,
+      coffee_break_qtd: nova.coffee_break ? parseInt(nova.coffee_break_qtd) || 1 : null,
     }).select('id').single()
     if (inserted && nova.refeicoes && Object.keys(cardapioSel).length > 0) {
       const rows = Object.entries(cardapioSel).map(([data, sel]) => ({
@@ -290,7 +309,15 @@ export default function ReservasPage() {
     const criancas = parseInt(editCriancas) || 0
     const pagantes = Math.max(0, hospedes - criancas)
     if (nts <= 0 || hospedes <= 0) return 0
-    return td.porPessoa ? td.valor * pagantes * nts : td.valor
+    let total = td.porPessoa ? td.valor * pagantes * nts : td.valor
+    if (editForm.refeicoes && !td.incluiAlim) {
+      total += PRECO_REFEICAO * pagantes * 3 * diasEntre(editForm.data_inicio, editForm.data_fim).length
+    }
+    if (editForm.coffee_break_plano && editForm.coffee_break_qtd) {
+      const cb = coffeeBreakPlanos.find(p => p.key === editForm.coffee_break_plano)
+      if (cb) total += cb.valor * pagantes * (editForm.coffee_break_qtd || 1)
+    }
+    return total
   }
 
   function abrirPropostaModal() {
@@ -313,11 +340,18 @@ export default function ReservasPage() {
     if (td) {
       valorCalculado = td.porPessoa ? td.valor * pagantes * nts : td.valor
     }
-    if (selecionada.refeicoes) {
+    // Alimentação só adiciona se NÃO inclusa na diária
+    if (selecionada.refeicoes && td && !td.incluiAlim) {
       const dias = diasEntre(selecionada.data_inicio, selecionada.data_fim).length
       valorCalculado += PRECO_REFEICAO * pagantes * 3 * dias
     }
+    // Coffee Break
+    if (selecionada.coffee_break_plano && selecionada.coffee_break_qtd) {
+      const cb = coffeeBreakPlanos.find(p => p.key === selecionada.coffee_break_plano)
+      if (cb) valorCalculado += cb.valor * pagantes * selecionada.coffee_break_qtd
+    }
     const valor = selecionada.valor_total ?? valorCalculado
+    const cbPlano = coffeeBreakPlanos.find(p => p.key === selecionada.coffee_break_plano)
 
     // Fetch cardápio items for the days
     const { data: cardapioItems } = await sb.from('cardapio').select('tipo_refeicao,plano,nome,descricao').eq('ativo', true)
@@ -473,21 +507,30 @@ export default function ReservasPage() {
       ${td && td.porPessoa ? `
       <div class="fin-row">
         <span>🏠 ${td.label}</span>
-        <span>${pagantes} pessoa(s) pagantes × ${nts} noite(s) × R$ ${td.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = <strong>R$ ${(td.valor * pagantes * nts).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+        <span>${pagantes} pessoa(s) × ${nts} noite(s) × R$ ${td.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = <strong>R$ ${(td.valor * pagantes * nts).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
       </div>` : td ? `
       <div class="fin-row">
         <span>🏠 ${td.label}</span>
         <span>Pacote fixo — <strong>R$ ${td.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+      </div>` : ''}
+      ${td?.incluiAlim ? `
+      <div class="fin-row">
+        <span>✅ Roupa de cama + Alimentação</span>
+        <span>Incluso na diária</span>
+      </div>` : selecionada.refeicoes ? `
+      <div class="fin-row">
+        <span>🍽️ Alimentação (3 refeições/dia)</span>
+        <span>${pagantes} pessoa(s) × ${diasEntre(selecionada.data_inicio, selecionada.data_fim).length} dia(s) × 3 ref. × R$ ${PRECO_REFEICAO.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = <strong>R$ ${(PRECO_REFEICAO * pagantes * 3 * diasEntre(selecionada.data_inicio, selecionada.data_fim).length).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
       </div>` : ''}
       ${criancas > 0 ? `
       <div class="fin-row">
         <span>👶 Crianças até 7 anos (isentas)</span>
         <span>${criancas} criança(s) — <strong>R$ 0,00</strong></span>
       </div>` : ''}
-      ${selecionada.refeicoes ? `
+      ${cbPlano && selecionada.coffee_break_qtd ? `
       <div class="fin-row">
-        <span>🍽️ Alimentação (3 refeições/dia)</span>
-        <span>${pagantes} pessoa(s) × ${diasEntre(selecionada.data_inicio, selecionada.data_fim).length} dia(s) × 3 ref. × R$ ${PRECO_REFEICAO.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = <strong>R$ ${(PRECO_REFEICAO * pagantes * 3 * diasEntre(selecionada.data_inicio, selecionada.data_fim).length).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+        <span>☕ Coffee Break — Plano ${cbPlano.label}</span>
+        <span>${pagantes} pessoa(s) × ${selecionada.coffee_break_qtd} sessão(ões) × R$ ${cbPlano.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = <strong>R$ ${(cbPlano.valor * pagantes * selecionada.coffee_break_qtd).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
       </div>` : ''}
     </div>
     <div class="fin-total">
@@ -1075,6 +1118,33 @@ export default function ReservasPage() {
                       </select>
                     </div>
                   </div>
+                  {/* Coffee Break no edit */}
+                  <div className="rounded-xl border p-4" style={{ borderColor: '#E5E7EB' }}>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#374151' }}>☕ Coffee Break (adicional)</div>
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      {[{ key: null, label: 'Sem Coffee', valor: null }, ...coffeeBreakPlanos].map(p => (
+                        <button key={p.key ?? 'none'} type="button"
+                          onClick={() => setEditForm(prev => ({ ...prev, coffee_break_plano: p.key, coffee_break_qtd: p.key ? (prev.coffee_break_qtd ?? 1) : null }))}
+                          className="py-2 px-2 rounded-xl border-2 text-center transition-all"
+                          style={{
+                            borderColor: (editForm.coffee_break_plano ?? null) === p.key ? '#006494' : '#E5E7EB',
+                            background: (editForm.coffee_break_plano ?? null) === p.key ? '#EFF6FF' : 'white',
+                          }}>
+                          <div className="text-xs font-bold" style={{ color: (editForm.coffee_break_plano ?? null) === p.key ? '#006494' : '#374151' }}>{p.label}</div>
+                          {p.valor && <div className="text-xs" style={{ color: '#6B7280' }}>R$ {p.valor}/pess.</div>}
+                        </button>
+                      ))}
+                    </div>
+                    {editForm.coffee_break_plano && (
+                      <div className="flex items-center gap-3">
+                        <label className="text-xs font-semibold" style={{ color: '#374151' }}>Sessões:</label>
+                        <input type="number" min="1" max="10" value={editForm.coffee_break_qtd ?? 1}
+                          onChange={e => setEditForm(p => ({ ...p, coffee_break_qtd: parseInt(e.target.value) || 1 }))}
+                          className="w-20 px-3 py-1.5 rounded-lg border text-sm outline-none"
+                          style={{ borderColor: '#E5E7EB', color: '#374151' }} />
+                      </div>
+                    )}
+                  </div>
                   <div>
                     <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>Observação Interna</label>
                     <textarea rows={3} value={editForm.observacao_interna ?? ''}
@@ -1145,8 +1215,11 @@ export default function ReservasPage() {
                 const criancas = parseInt(propostaCriancas) || 0
                 const pagantes = Math.max(0, selecionada.hospedes - criancas)
                 const base = td ? (td.porPessoa ? td.valor * pagantes * nts : td.valor) : 0
-                const alim = selecionada.refeicoes ? PRECO_REFEICAO * pagantes * 3 * diasEntre(selecionada.data_inicio, selecionada.data_fim).length : 0
-                const total = base + alim
+                const alim = (selecionada.refeicoes && td && !td.incluiAlim)
+                  ? PRECO_REFEICAO * pagantes * 3 * diasEntre(selecionada.data_inicio, selecionada.data_fim).length : 0
+                const cbP = coffeeBreakPlanos.find(p => p.key === selecionada.coffee_break_plano)
+                const cb = (cbP && selecionada.coffee_break_qtd) ? cbP.valor * pagantes * selecionada.coffee_break_qtd : 0
+                const total = base + alim + cb
                 return (
                   <div className="rounded-xl p-4" style={{ background: '#F0F9FF', border: '1px solid #BAE6FD' }}>
                     <div className="text-xs font-semibold mb-1" style={{ color: '#0369A1' }}>
@@ -1156,7 +1229,9 @@ export default function ReservasPage() {
                       R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </div>
                     <div className="text-xs mt-1" style={{ color: '#6B7280' }}>
-                      {pagantes} pagantes · {nts} noite(s){selecionada.refeicoes ? ' · alimentação inclusa' : ''}
+                      {pagantes} pagantes · {nts} noite(s)
+                      {td?.incluiAlim ? ' · alim. inclusa' : selecionada.refeicoes ? ' · + alimentação' : ''}
+                      {cb > 0 ? ` · + coffee break` : ''}
                     </div>
                   </div>
                 )
@@ -1298,6 +1373,39 @@ export default function ReservasPage() {
                         <span style={{ color: '#374151' }}>{label}</span>
                       </label>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Coffee Break */}
+              <div className="rounded-xl border p-4" style={{ borderColor: '#E5E7EB' }}>
+                <div className="flex items-center gap-3 mb-3">
+                  <input type="checkbox" id="cb_check" checked={nova.coffee_break} onChange={e => setNova(p => ({ ...p, coffee_break: e.target.checked }))}
+                    className="w-4 h-4 rounded" style={{ accentColor: '#006494' }} />
+                  <label htmlFor="cb_check" className="text-sm font-semibold" style={{ color: '#374151' }}>☕ Coffee Break (adicional)</label>
+                </div>
+                {nova.coffee_break && (
+                  <div className="ml-7 space-y-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      {coffeeBreakPlanos.map(p => (
+                        <button key={p.key} type="button" onClick={() => setNova(prev => ({ ...prev, coffee_break_plano: p.key }))}
+                          className="py-2.5 px-3 rounded-xl border-2 text-center transition-all"
+                          style={{
+                            borderColor: nova.coffee_break_plano === p.key ? '#006494' : '#E5E7EB',
+                            background: nova.coffee_break_plano === p.key ? '#EFF6FF' : 'white',
+                          }}>
+                          <div className="text-xs font-bold" style={{ color: nova.coffee_break_plano === p.key ? '#006494' : '#374151' }}>{p.label}</div>
+                          <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>R$ {p.valor}/pessoa</div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <label className="text-xs font-semibold" style={{ color: '#374151' }}>Sessões de Coffee Break:</label>
+                      <input type="number" min="1" max="10" value={nova.coffee_break_qtd}
+                        onChange={e => setNova(p => ({ ...p, coffee_break_qtd: e.target.value }))}
+                        className="w-20 px-3 py-1.5 rounded-lg border text-sm outline-none"
+                        style={{ borderColor: '#E5E7EB', color: '#374151' }} />
+                    </div>
                   </div>
                 )}
               </div>
