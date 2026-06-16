@@ -100,6 +100,9 @@ export default function ReservasPage() {
   const [linkCopiado, setLinkCopiado] = useState(false)
   const [editTipoDiaria, setEditTipoDiaria] = useState('sem_roupa')
   const [editCriancas, setEditCriancas] = useState('0')
+  const [propostaModal, setPropostaModal] = useState(false)
+  const [propostaTipoDiaria, setPropostaTipoDiaria] = useState('sem_roupa')
+  const [propostaCriancas, setPropostaCriancas] = useState('0')
   const [novaModal, setNovaModal] = useState(false)
   const [nova, setNova] = useState<NovaReserva>(novaReservaInicial)
   const [salvando, setSalvando] = useState(false)
@@ -289,12 +292,31 @@ export default function ReservasPage() {
     return td.porPessoa ? td.valor * pagantes * nts : td.valor
   }
 
+  function abrirPropostaModal() {
+    if (!selecionada) return
+    setPropostaTipoDiaria(selecionada.tipo_diaria ?? 'sem_roupa')
+    setPropostaCriancas(String(selecionada.criancas_isentas ?? 0))
+    setPropostaModal(true)
+  }
+
   async function gerarProposta() {
     if (!selecionada) return
+    setPropostaModal(false)
     const nts = noites(selecionada.data_inicio, selecionada.data_fim)
-    const valor = selecionada.valor_total ?? 0
-    const td = tiposDiaria.find(t => t.key === (selecionada.tipo_diaria ?? 'sem_roupa'))
-    const pagantes = Math.max(0, selecionada.hospedes - (selecionada.criancas_isentas ?? 0))
+    const td = tiposDiaria.find(t => t.key === propostaTipoDiaria)
+    const criancas = parseInt(propostaCriancas) || 0
+    const pagantes = Math.max(0, selecionada.hospedes - criancas)
+
+    // Recalcula o valor com os parâmetros selecionados
+    let valorCalculado = 0
+    if (td) {
+      valorCalculado = td.porPessoa ? td.valor * pagantes * nts : td.valor
+    }
+    if (selecionada.refeicoes) {
+      const dias = diasEntre(selecionada.data_inicio, selecionada.data_fim).length
+      valorCalculado += PRECO_REFEICAO * pagantes * 3 * dias
+    }
+    const valor = selecionada.valor_total ?? valorCalculado
 
     // Fetch cardápio items for the days
     const { data: cardapioItems } = await sb.from('cardapio').select('tipo_refeicao,plano,nome,descricao').eq('ativo', true)
@@ -418,7 +440,7 @@ export default function ReservasPage() {
     <div class="card-titulo">Horários de Check-in e Check-out</div>
     <div class="checkin-grid">
       <div class="checkin-box">
-        <div class="hora" contenteditable="true">15:00</div>
+        <div class="hora" contenteditable="true">14:00</div>
         <div class="label">✅ Check-in</div>
       </div>
       <div class="checkin-box">
@@ -444,14 +466,30 @@ export default function ReservasPage() {
   <!-- FINANCEIRO -->
   <div class="card">
     <div class="card-titulo">Resumo Financeiro</div>
-    <div class="financeiro" contenteditable="true">
-      ${td ? `<div class="fin-row"><span>${td.label}</span><span>${td.porPessoa ? `${pagantes} pessoas × ${nts} noites × R$ ${td.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Pacote fixo'}</span></div>` : ''}
-      ${selecionada.refeicoes ? `<div class="fin-row"><span>Serviço de Alimentação</span><span>${pagantes} pessoas × refeições × R$ ${PRECO_REFEICAO.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>` : ''}
-      ${selecionada.criancas_isentas ? `<div class="fin-row"><span>Crianças isentas (até 7 anos)</span><span>${selecionada.criancas_isentas} isenta(s)</span></div>` : ''}
+    <div class="financeiro">
+      ${td && td.porPessoa ? `
+      <div class="fin-row">
+        <span>🏠 ${td.label}</span>
+        <span>${pagantes} pessoa(s) pagantes × ${nts} noite(s) × R$ ${td.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = <strong>R$ ${(td.valor * pagantes * nts).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+      </div>` : td ? `
+      <div class="fin-row">
+        <span>🏠 ${td.label}</span>
+        <span>Pacote fixo — <strong>R$ ${td.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+      </div>` : ''}
+      ${criancas > 0 ? `
+      <div class="fin-row">
+        <span>👶 Crianças até 7 anos (isentas)</span>
+        <span>${criancas} criança(s) — <strong>R$ 0,00</strong></span>
+      </div>` : ''}
+      ${selecionada.refeicoes ? `
+      <div class="fin-row">
+        <span>🍽️ Alimentação (3 refeições/dia)</span>
+        <span>${pagantes} pessoa(s) × ${diasEntre(selecionada.data_inicio, selecionada.data_fim).length} dia(s) × 3 ref. × R$ ${PRECO_REFEICAO.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = <strong>R$ ${(PRECO_REFEICAO * pagantes * 3 * diasEntre(selecionada.data_inicio, selecionada.data_fim).length).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+      </div>` : ''}
     </div>
     <div class="fin-total">
       <span class="fin-total-label">Valor Total do Evento</span>
-      <span class="fin-total-valor" contenteditable="true">R$ ${valor > 0 ? valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '—'}</span>
+      <span class="fin-total-valor" contenteditable="true">R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
     </div>
     <p style="font-size:12px; color:#9CA3AF; margin-top:12px; text-align:center" contenteditable="true">
       Este documento é uma proposta oficial. Para dúvidas, entre em contato: (24) 3551-1223 · catre@ars.org.br
@@ -753,7 +791,7 @@ export default function ReservasPage() {
                 <div className="space-y-4">
                   {/* Botões de ação */}
                   <div className="flex gap-2">
-                    <button onClick={gerarProposta}
+                    <button onClick={abrirPropostaModal}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
                       style={{ background: '#13293D', color: 'white' }}>
                       <FileText size={15} /> Gerar Proposta / PDF
@@ -1051,6 +1089,86 @@ export default function ReservasPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal configurar proposta */}
+      {propostaModal && selecionada && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}
+          onClick={e => { if (e.target === e.currentTarget) setPropostaModal(false) }}>
+          <div className="bg-white rounded-2xl w-full max-w-md" style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}>
+            <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: '#F3F4F6' }}>
+              <h2 className="font-bold text-base flex items-center gap-2" style={{ color: '#13293D' }}>
+                <FileText size={18} style={{ color: '#006494' }} /> Configurar Proposta
+              </h2>
+              <button onClick={() => setPropostaModal(false)} style={{ color: '#9CA3AF' }}><X size={20} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm" style={{ color: '#6B7280' }}>
+                Selecione o tipo de diária para calcular o valor corretamente na proposta:
+              </p>
+
+              {/* Tipo diária com cards */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: '#374151' }}>Tipo de Diária (Tabela 2026)</label>
+                {tiposDiaria.map(t => (
+                  <button key={t.key} type="button" onClick={() => setPropostaTipoDiaria(t.key)}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 text-sm transition-all"
+                    style={{
+                      borderColor: propostaTipoDiaria === t.key ? '#006494' : '#E5E7EB',
+                      background: propostaTipoDiaria === t.key ? '#EFF6FF' : 'white',
+                    }}>
+                    <span className="font-semibold text-left" style={{ color: propostaTipoDiaria === t.key ? '#006494' : '#374151' }}>{t.label}</span>
+                    <span className="font-bold flex-shrink-0 ml-3" style={{ color: propostaTipoDiaria === t.key ? '#006494' : '#9CA3AF' }}>
+                      R$ {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}{t.porPessoa ? '/pess./noite' : ' fixo'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#374151' }}>Crianças até 7 anos (isentas)</label>
+                <input type="number" min="0" value={propostaCriancas} onChange={e => setPropostaCriancas(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border text-sm outline-none"
+                  style={{ borderColor: '#E5E7EB', color: '#374151' }} />
+              </div>
+
+              {/* Preview do valor */}
+              {(() => {
+                const td = tiposDiaria.find(t => t.key === propostaTipoDiaria)
+                const nts = noites(selecionada.data_inicio, selecionada.data_fim)
+                const criancas = parseInt(propostaCriancas) || 0
+                const pagantes = Math.max(0, selecionada.hospedes - criancas)
+                const base = td ? (td.porPessoa ? td.valor * pagantes * nts : td.valor) : 0
+                const alim = selecionada.refeicoes ? PRECO_REFEICAO * pagantes * 3 * diasEntre(selecionada.data_inicio, selecionada.data_fim).length : 0
+                const total = base + alim
+                return (
+                  <div className="rounded-xl p-4" style={{ background: '#F0F9FF', border: '1px solid #BAE6FD' }}>
+                    <div className="text-xs font-semibold mb-1" style={{ color: '#0369A1' }}>
+                      Prévia do valor calculado
+                    </div>
+                    <div className="text-2xl font-black" style={{ color: '#006494' }}>
+                      R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-xs mt-1" style={{ color: '#6B7280' }}>
+                      {pagantes} pagantes · {nts} noite(s){selecionada.refeicoes ? ' · alimentação inclusa' : ''}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => setPropostaModal(false)}
+                  className="flex-1 py-3 rounded-xl text-sm font-semibold border-2 hover:bg-gray-50"
+                  style={{ borderColor: '#E5E7EB', color: '#374151' }}>Cancelar</button>
+                <button onClick={gerarProposta}
+                  className="flex-1 py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 hover:opacity-90"
+                  style={{ background: '#13293D' }}>
+                  <FileText size={16} /> Gerar PDF
+                </button>
+              </div>
             </div>
           </div>
         </div>
