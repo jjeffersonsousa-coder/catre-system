@@ -92,8 +92,8 @@ export default function LocalizacaoHotel() {
                 <a href="tel:+552435511223" className="flex items-center gap-2 text-xs hover:opacity-70" style={{ color: '#006494' }}>
                   <Phone size={14} /> (24) 3551-1223
                 </a>
-                <a href="mailto:catre@adventistars.org.br" className="flex items-center gap-2 text-xs hover:opacity-70" style={{ color: '#006494' }}>
-                  <Mail size={14} /> catre@adventistars.org.br
+                <a href="mailto:tesouraria.ars@adventistas.org" className="flex items-center gap-2 text-xs hover:opacity-70" style={{ color: '#006494' }}>
+                  <Mail size={14} /> tesouraria.ars@adventistas.org
                 </a>
               </div>
             </div>

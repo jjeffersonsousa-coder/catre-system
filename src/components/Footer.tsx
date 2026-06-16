@@ -67,7 +67,7 @@ export default function Footer() {
             <ul className="space-y-2 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
               <li>📍 Penedo, Alagoas</li>
               <li>📞 (82) 0000-0000</li>
-              <li>✉️ catre@adventistars.org.br</li>
+              <li>✉️ tesouraria.ars@adventistas.org</li>
             </ul>
           </div>
         </div>

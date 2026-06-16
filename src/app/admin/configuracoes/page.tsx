@@ -16,7 +16,7 @@ export default function ConfiguracoesPage() {
               { label: 'Cidade', value: 'Itatiaia — Rio de Janeiro' },
               { label: 'Associação', value: 'Associação Rio Sul (ARS)' },
               { label: 'Telefone', value: '(24) 3551-1223' },
-              { label: 'E-mail', value: 'catre@adventistars.org.br' },
+              { label: 'E-mail', value: 'tesouraria.ars@adventistas.org' },
             ].map(f => (
               <div key={f.label}>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: '#374151' }}>{f.label}</label>

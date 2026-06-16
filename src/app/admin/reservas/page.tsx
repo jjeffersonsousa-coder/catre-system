@@ -495,7 +495,7 @@ export default function ReservasPage() {
       <span class="fin-total-valor" contenteditable="true">R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
     </div>
     <p style="font-size:12px; color:#9CA3AF; margin-top:12px; text-align:center" contenteditable="true">
-      Este documento é uma proposta oficial. Para dúvidas, entre em contato: (24) 3551-1223 · catre@ars.org.br
+      Este documento é uma proposta oficial. Para dúvidas, entre em contato: (24) 3551-1223 · tesouraria.ars@adventistas.org
     </p>
   </div>
 

@@ -46,9 +46,9 @@ export default function FooterHotel() {
                 <Phone size={15} style={{ color: '#4D9FBF' }} />
                 (24) 3551-1223
               </a>
-              <a href="mailto:catre@adventistars.org.br" className="flex items-center gap-2.5 text-sm hover:opacity-70 transition-opacity" style={{ color: 'rgba(255,255,255,0.65)' }}>
+              <a href="mailto:tesouraria.ars@adventistas.org" className="flex items-center gap-2.5 text-sm hover:opacity-70 transition-opacity" style={{ color: 'rgba(255,255,255,0.65)' }}>
                 <Mail size={15} style={{ color: '#4D9FBF' }} />
-                catre@adventistars.org.br
+                tesouraria.ars@adventistas.org
               </a>
               <div className="flex items-start gap-2.5 text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
                 <MapPin size={15} className="mt-0.5 flex-shrink-0" style={{ color: '#4D9FBF' }} />

@@ -75,12 +75,12 @@ export default function Localizacao() {
                   (24) 3551-1223
                 </a>
                 <a
-                  href="mailto:catre@adventistars.org.br"
+                  href="mailto:tesouraria.ars@adventistas.org"
                   className="flex items-center gap-3 text-sm hover:opacity-80 transition-opacity"
                   style={{ color: '#006494' }}
                 >
                   <Mail size={16} />
-                  catre@adventistars.org.br
+                  tesouraria.ars@adventistas.org
                 </a>
               </div>
             </div>
